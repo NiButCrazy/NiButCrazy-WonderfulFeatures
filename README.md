@@ -54,6 +54,21 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 
 ## 安装
 
+### 一键安装到本地启动器
+
+```powershell
+.\install-plugin.ps1
+```
+
+默认目标为 `D:\MC\nex\PCL2.exe`，会构建插件、复制到该启动器的 `PCL/Plugins/`，并在
+`PCL/config.local.v1.json` 中自动启用。其他位置可以用参数覆盖：
+
+```powershell
+.\install-plugin.ps1 -PclPath "E:\Somewhere\PCL2.exe"
+```
+
+### 手动安装
+
 推荐在启动器中打开 **设置 → 插件 → 从本地安装**，选择生成的 `.pclx` 或 `.zip`。
 
 也可以手动把 `dist/nibutcrazy.wonderful-features` 目录放到启动器程序目录下的：
