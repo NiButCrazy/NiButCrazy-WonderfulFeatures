@@ -36,9 +36,27 @@ dotnet build "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c Release -
 
 产物在 `dist/nibutcrazy.wonderful-features/`。
 
+## 打包格式
+
+`.pclx` 和 `.zip` 指向同一种东西：**ZIP 压缩包**。
+
+- `.pclx` 是 PCL 插件专用扩展名，便于系统关联和插件市场识别。
+- 启动器的本地安装同时接受 `.pclx` 和 `.zip`，解压后会递归查找 `plugin.json`。
+- 目录形式（解压后的 `dist/nibutcrazy.wonderful-features/`）则是安装后的形态，适合手动放进 `PCL/Plugins`。
+
+`build-plugin.ps1` 会同时生成：
+
+```
+dist/nibutcrazy.wonderful-features/       目录（可直接放入 PCL/Plugins）
+dist/nibutcrazy.wonderful-features.pclx   插件包（推荐分发）
+dist/nibutcrazy.wonderful-features.zip    同样内容
+```
+
 ## 安装
 
-把 `dist/nibutcrazy.wonderful-features` 整个目录放到启动器程序目录下的：
+推荐在启动器中打开 **设置 → 插件 → 从本地安装**，选择生成的 `.pclx` 或 `.zip`。
+
+也可以手动把 `dist/nibutcrazy.wonderful-features` 目录放到启动器程序目录下的：
 
 ```
 PCL/Plugins/nibutcrazy.wonderful-features/

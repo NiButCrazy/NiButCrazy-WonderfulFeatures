@@ -38,5 +38,23 @@ if (Test-Path -LiteralPath $deps) {
     Copy-Item -LiteralPath $deps -Destination (Join-Path $dist 'lib')
 }
 
+# 生成可分发的插件包。.pclx 与 .zip 内容完全相同，前者是 PCL 的专用扩展名。
+$distRoot = Join-Path $root 'dist'
+$pclx = Join-Path $distRoot 'nibutcrazy.wonderful-features.pclx'
+$zip = Join-Path $distRoot 'nibutcrazy.wonderful-features.zip'
+foreach ($archive in @($pclx, $zip)) {
+    if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
+}
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+    $dist,
+    $pclx,
+    [System.IO.Compression.CompressionLevel]::Optimal,
+    $false)
+Copy-Item -LiteralPath $pclx -Destination $zip
+
 Write-Host "完成：$dist" -ForegroundColor Green
-Write-Host '把整个目录放到 <启动器目录>/PCL/Plugins/ 下，并在插件页启用。' -ForegroundColor Green
+Write-Host "插件包：$pclx" -ForegroundColor Green
+Write-Host "    或：$zip" -ForegroundColor Green
+Write-Host '安装：启动器「设置 → 插件 → 从本地安装」选择 .pclx / .zip，或把目录直接放到 <启动器目录>/PCL/Plugins/。' -ForegroundColor Green
