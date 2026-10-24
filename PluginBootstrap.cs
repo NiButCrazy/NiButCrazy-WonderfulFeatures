@@ -44,7 +44,11 @@ internal sealed class PluginSettings
 
     public static string DataDirectory => Path.Combine(Paths.Plugins, "data", PluginConstants.Id);
 
-    public static string SkinsDirectory => Path.Combine(DataDirectory, "Skins");
+    /// <summary>
+    /// 注意必须使用单数 Skin：MySkin.Load 会用 "Skin/" 截取头像缓存 ID，
+    /// 使用 "Skins/" 会让它把整条绝对路径当作 ID，从而把头像覆盖到皮肤文件本身。
+    /// </summary>
+    public static string SkinDirectory => Path.Combine(DataDirectory, "Skin");
 
     public static string ConfigPath => Path.Combine(DataDirectory, "config.json");
 
@@ -55,7 +59,7 @@ internal sealed class PluginSettings
         try
         {
             Directory.CreateDirectory(DataDirectory);
-            Directory.CreateDirectory(SkinsDirectory);
+            Directory.CreateDirectory(SkinDirectory);
             if (!File.Exists(ConfigPath))
             {
                 var defaults = new PluginSettings();
@@ -97,6 +101,7 @@ internal static class PluginBootstrap
         try
         {
             var settings = PluginSettings.Current;
+            MigrateLegacySkinDirectory();
             EnsureSkinReadme();
             ApplyAnimationFps(settings.AnimationFps);
             WriteLog($"初始化完成：AnimationFps={settings.AnimationFps}, VariedDefaultSkins={settings.VariedDefaultSkins}");
@@ -107,9 +112,28 @@ internal static class PluginBootstrap
         }
     }
 
+    private static void MigrateLegacySkinDirectory()
+    {
+        var legacy = Path.Combine(PluginSettings.DataDirectory, "Skins");
+        if (!Directory.Exists(legacy)) return;
+
+        var target = Path.Combine(
+            PluginSettings.DataDirectory,
+            "Skins.old-" + DateTime.Now.ToString("yyyyMMddHHmmss"));
+        try
+        {
+            Directory.Move(legacy, target);
+            WriteLog($"旧皮肤目录已重命名：{target}（请重新选择皮肤）");
+        }
+        catch (Exception ex)
+        {
+            WriteLog("重命名旧皮肤目录失败：" + ex);
+        }
+    }
+
     private static void EnsureSkinReadme()
     {
-        var readmePath = Path.Combine(PluginSettings.SkinsDirectory, "说明.txt");
+        var readmePath = Path.Combine(PluginSettings.SkinDirectory, "说明.txt");
         if (File.Exists(readmePath)) return;
         File.WriteAllText(readmePath,
             "把 Minecraft 皮肤 PNG（64x64 或 64x32）放到这个目录，文件名使用玩家 ID。\r\n" +
@@ -174,9 +198,9 @@ internal static class PluginBootstrap
                         $"皮肤尺寸过小（{frame.PixelWidth}×{frame.PixelHeight}），请选择 64×64 或 64×32 的 PNG。");
             }
 
-            Directory.CreateDirectory(PluginSettings.SkinsDirectory);
+            Directory.CreateDirectory(PluginSettings.SkinDirectory);
             var fileName = SanitizeFileName(profile.Username) + ".png";
-            var target = Path.Combine(PluginSettings.SkinsDirectory, fileName);
+            var target = Path.Combine(PluginSettings.SkinDirectory, fileName);
             File.Copy(sourcePath, target, overwrite: true);
             WriteLog($"离线皮肤已更新：{profile.Username} -> {target}");
 

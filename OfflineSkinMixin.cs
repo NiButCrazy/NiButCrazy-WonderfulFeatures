@@ -66,7 +66,7 @@ internal static class OfflineSkinMixin
 
     private static string? FindCustomSkin(string username, string uuid)
     {
-        var directory = PluginSettings.SkinsDirectory;
+        var directory = PluginSettings.SkinDirectory;
         foreach (var candidate in new[] { username, uuid, "default" })
         {
             if (string.IsNullOrWhiteSpace(candidate)) continue;

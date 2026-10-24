@@ -91,7 +91,7 @@ PCL/Plugins/nibutcrazy.wonderful-features/
 ### 在启动器中直接换肤
 
 选中离线档案，然后点击 **皮肤与披风 → 修改皮肤**，选择本地 PNG 文件。
-插件会把它复制到下面的 `Skins` 目录并立即刷新头像，不再显示「当前档案不支持修改皮肤！」。
+插件会把它复制到下面的 `Skin` 目录并立即刷新头像，不再显示「当前档案不支持修改皮肤！」。
 
 ### 手动放置皮肤文件
 
@@ -101,10 +101,14 @@ PCL/Plugins/nibutcrazy.wonderful-features/
 PCL/Plugins/data/nibutcrazy.wonderful-features/
 ├─ config.json
 ├─ plugin.log
-└─ Skins/
+└─ Skin/                ← 必须是单数，匹配 PCL 的头像缓存解析
    ├─ 说明.txt
    └─ <玩家 ID>.png    ← 把你的皮肤放到这里
 ```
+
+> 1.1.1 之前版本使用 `Skins/`（复数），会让 `MySkin.Load` 把整条绝对路径当成头像 ID，
+> 进而把头像写回皮肤文件，表现为「头像变成一坨色块」。
+> 新版启动时会自动把旧的 `Skins/` 重命名为 `Skins.old-<时间戳>`，请重新选择一次皮肤。
 
 皮肤必须是 Minecraft 格式的 PNG（64×64 或 64×32）。
 支持三种命名，按以下优先级匹配：
