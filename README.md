@@ -119,6 +119,16 @@ PCL/Plugins/data/nibutcrazy.wonderful-features/
 
 都没有时，从 9 个官方默认皮肤（Steve、Alex、Ari、Efe、Kai、Makena、Noor、Sunny、Zuri）中按 UUID 稳定选择。
 
+### 头像逻辑（1.2.0）
+
+插件重写了 `MySkin.Load`：
+
+- 直接读取皮肤文件，按分辨率截取头部 8×8 区域（含帽子层）
+- 头像缓存使用皮肤地址的 SHA-256 作为文件名，只写入
+  `%TEMP%\PCLNex\Cache\Skin\Head\`
+- 不再解析路径标记，任何皮肤路径都不会被误当成缓存目标
+- 来源皮肤文件全程只读
+
 ## 配置
 
 `config.json`：

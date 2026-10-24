@@ -2,7 +2,8 @@
   "required": true,
   "mixins": [
     "PCL.Plugin.NiButCrazy.Mixins.OfflineSkinMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.ProfileSkinMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.ProfileSkinMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.AvatarMixin"
   ],
   "priority": 1000,
   "injectors": {
