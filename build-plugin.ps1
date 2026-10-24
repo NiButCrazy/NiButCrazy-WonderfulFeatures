@@ -38,6 +38,13 @@ if (Test-Path -LiteralPath $deps) {
     Copy-Item -LiteralPath $deps -Destination (Join-Path $dist 'lib')
 }
 
+$icon = Join-Path $root 'assets\icon.png'
+if (Test-Path -LiteralPath $icon) {
+    $iconDirectory = Join-Path $dist 'assets'
+    New-Item -ItemType Directory -Path $iconDirectory -Force | Out-Null
+    Copy-Item -LiteralPath $icon -Destination $iconDirectory
+}
+
 # 生成可分发的插件包。.pclx 与 .zip 内容完全相同，前者是 PCL 的专用扩展名。
 $distRoot = Join-Path $root 'dist'
 $pclx = Join-Path $distRoot 'nibutcrazy.wonderful-features.pclx'
