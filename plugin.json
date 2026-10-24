@@ -1,0 +1,10 @@
+{
+  "id": "nibutcrazy.wonderful-features",
+  "name": "NiButCrazy的奇妙特性",
+  "version": "1.0.0",
+  "author": "NiButCrazy",
+  "description": "离线皮肤自定义、默认头像多样化与动画帧率突破。",
+  "pclCoreVersion": "2026.07.1",
+  "entryAssembly": "lib/PCL.Plugin.NiButCrazy.dll",
+  "mixinConfig": "mixins.json"
+}

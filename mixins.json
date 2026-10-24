@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "mixins": [
+    "PCL.Plugin.NiButCrazy.Mixins.OfflineSkinMixin"
+  ],
+  "priority": 1000,
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "plugin": "PCL.Plugin.NiButCrazy.NiButCrazyConfigPlugin"
+}
