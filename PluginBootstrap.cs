@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
+using System.Windows.Media.Imaging;
 using PCL.Core.App;
 using PCL.Mixin;
 
@@ -152,6 +154,50 @@ internal static class PluginBootstrap
 
         fpsProperty.SetValue(group, target);
         WriteLog($"动画帧率配置已设置为 {target}");
+    }
+
+    /// <summary>
+    /// 把用户选择的皮肤复制到插件皮肤目录，并按玩家 ID 命名。
+    /// </summary>
+    public static void ApplyOfflineSkin(ModProfile.McProfile profile, string sourcePath)
+    {
+        try
+        {
+            using (var stream = File.OpenRead(sourcePath))
+            {
+                var frame = BitmapDecoder.Create(
+                    stream,
+                    BitmapCreateOptions.PreservePixelFormat,
+                    BitmapCacheOption.OnLoad).Frames[0];
+                if (frame.PixelWidth < 64 || frame.PixelHeight < 32)
+                    throw new InvalidDataException(
+                        $"皮肤尺寸过小（{frame.PixelWidth}×{frame.PixelHeight}），请选择 64×64 或 64×32 的 PNG。");
+            }
+
+            Directory.CreateDirectory(PluginSettings.SkinsDirectory);
+            var fileName = SanitizeFileName(profile.Username) + ".png";
+            var target = Path.Combine(PluginSettings.SkinsDirectory, fileName);
+            File.Copy(sourcePath, target, overwrite: true);
+            WriteLog($"离线皮肤已更新：{profile.Username} -> {target}");
+
+            HintService.Hint("离线皮肤已更新", HintType.Success);
+            ModMain.frmLoginProfileSkin?.Reload();
+        }
+        catch (Exception ex)
+        {
+            WriteLog("应用离线皮肤失败：" + ex);
+            HintService.Hint("应用皮肤失败：" + ex.Message, HintType.Error);
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var characters = (name ?? string.Empty)
+            .Select(character => invalid.Contains(character) ? '_' : character)
+            .ToArray();
+        var result = new string(characters).Trim();
+        return string.IsNullOrWhiteSpace(result) ? "default" : result;
     }
 
     public static void WriteLog(string message)
