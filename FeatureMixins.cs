@@ -41,6 +41,7 @@ internal static class DownloadSearchMixin
             FeatureState.PendingDownloadPageType = CompTypeField?.GetValue(instance) is { } compType
                 ? Convert.ToInt32(compType)
                 : null;
+            PluginBootstrap.WriteLog($"[Search] 已捕获搜索词：{text}，资源类型：{FeatureState.PendingDownloadPageType}");
         }
         catch (Exception ex)
         {
@@ -61,35 +62,36 @@ internal static class DownloadPageMixin
     private static readonly MethodInfo? StartNewSearchMethod = typeof(PageComp).GetMethod(
         "StartNewSearch", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-    [Inject("PageCompControls_Inited", At = MixinAt.Tail)]
+    [Inject("PageCompControls_Inited", At = MixinAt.Return)]
     private static void ApplySearch([This] PageComp instance)
     {
         var text = FeatureState.PendingDownloadSearch;
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        // 只让目标类型（Mod / 资源包 / 光影）的下载页消费该搜索词
-        var pendingType = FeatureState.PendingDownloadPageType;
-        if (pendingType is not null && Convert.ToInt32(instance.PageType) != pendingType.Value) return;
-
-        FeatureState.PendingDownloadSearch = null;
-        FeatureState.PendingDownloadPageType = null;
-
         try
         {
+            var pageType = Convert.ToInt32(instance.PageType);
+            var pendingType = FeatureState.PendingDownloadPageType;
+            PluginBootstrap.WriteLog($"[Search] 下载页加载：页面类型={pageType}，待用类型={pendingType}，搜索词={text}");
+            if (pendingType is not null && pageType != pendingType.Value) return;
+
+            FeatureState.PendingDownloadSearch = null;
+            FeatureState.PendingDownloadPageType = null;
+
             var searchBox = SearchBoxField?.GetValue(instance) as MySearchBox;
             if (searchBox is null)
             {
-                PluginBootstrap.WriteLog("下载页未找到搜索框，跳过搜索词填充");
+                PluginBootstrap.WriteLog("[Search] 下载页未找到搜索框，跳过填充");
                 return;
             }
 
             searchBox.Text = text;
             StartNewSearchMethod?.Invoke(instance, null);
-            PluginBootstrap.WriteLog($"下载页已应用搜索词：{text}");
+            PluginBootstrap.WriteLog($"[Search] 下载页已应用搜索词：{text}");
         }
         catch (Exception ex)
         {
-            PluginBootstrap.WriteLog("应用下载搜索词失败：" + ex);
+            PluginBootstrap.WriteLog("[Search] 应用下载搜索词失败：" + ex);
         }
     }
 }
