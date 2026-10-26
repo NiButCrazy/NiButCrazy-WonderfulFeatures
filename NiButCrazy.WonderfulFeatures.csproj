@@ -25,5 +25,9 @@
             <HintPath>$(PclBuildDir)\Plain Craft Launcher 2.dll</HintPath>
             <Private>false</Private>
         </Reference>
+        <Reference Include="Microsoft.Data.Sqlite">
+            <HintPath>$(PclBuildDir)\Microsoft.Data.Sqlite.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
     </ItemGroup>
 </Project>

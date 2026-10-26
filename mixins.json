@@ -6,7 +6,8 @@
     "PCL.Plugin.NiButCrazy.Mixins.AvatarMixin",
     "PCL.Plugin.NiButCrazy.Mixins.DownloadSearchMixin",
     "PCL.Plugin.NiButCrazy.Mixins.DownloadPageMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.ChineseSearchMixin"
   ],
   "priority": 1000,
   "injectors": {
