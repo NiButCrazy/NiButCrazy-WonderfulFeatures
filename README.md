@@ -1,9 +1,12 @@
-# NiButCrazy的奇妙特性
+# NiButCrazy 奇妙特性
 
-PCL Nex 的 Mixin 插件，用于绕过官方发布版中写死的两个限制：
+PCL Nex 的 Mixin 插件，用于补全官方发布版中缺失的离线皮肤功能：
 
 1. **离线皮肤**：不再只有 Steve / Alex。支持本地自定义皮肤，并让默认头像从 9 个官方皮肤中稳定选择。
-2. **动画帧率**：把 `UiAniFPS` 配置自动设置为 240（跟随显示器刷新率），不再固定在 60 FPS。
+2. **离线换肤**：离线档案的「修改皮肤」菜单可以直接选择本地 PNG。
+3. **头像逻辑**：重写 `MySkin.Load`，只读取皮肤文件并截取头像区域，绝不写回来源文件。
+
+> 动画帧率问题已由上游 `713128b` 修复（垂直同步档位跟随显示器刷新率），插件不再处理帧率。
 
 ## 构建
 
@@ -81,7 +84,7 @@ PCL/Plugins/nibutcrazy.wonderful-features/
    └─ PCL.Plugin.NiButCrazy.dll
 ```
 
-然后在启动器中打开 **设置 → 插件**（或对应插件管理页面），启用「NiButCrazy的奇妙特性」。
+然后在启动器中打开 **设置 → 插件**（或对应插件管理页面），启用「NiButCrazy 奇妙特性」。
 插件启用状态保存在程序目录的 `PCL/config.local.v1.json`。
 
 也可以直接把插件压缩成 zip，通过启动器的本地插件安装功能安装。
@@ -135,15 +138,13 @@ PCL/Plugins/data/nibutcrazy.wonderful-features/
 
 ```json
 {
-  "AnimationFps": 240,
   "VariedDefaultSkins": true
 }
 ```
 
-- `AnimationFps`：启动时写入的动画帧率配置，`0` 表示不修改。
 - `VariedDefaultSkins`：`true` 时使用 9 个默认皮肤；`false` 时恢复为 Steve/Alex。
 
 ## 注意
 
-- 设置页滑块仍然显示 60 FPS 上限，但实际动画会按配置值运行。
-- 插件通过 Mixin 替换 `PageLaunchLeft.SkinLegacyLoad`，PCL Nex 更新后如果该方法签名变化，插件会加载失败并被启动器自动禁用；此时删除插件或等待适配即可。
+- 插件通过 Mixin 修改 `PageLaunchLeft.SkinLegacyLoad`、`PageLoginProfileSkin.Skin_Click` 和 `MySkin.Load`。
+  PCL Nex 更新后如果这些方法签名变化，插件会加载失败并被启动器自动禁用；此时删除插件或等待适配即可。

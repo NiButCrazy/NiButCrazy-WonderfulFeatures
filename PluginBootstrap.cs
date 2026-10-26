@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Windows.Media.Imaging;
@@ -13,7 +12,7 @@ namespace PCL.Plugin.NiButCrazy;
 internal static class PluginConstants
 {
     public const string Id = "nibutcrazy.wonderful-features";
-    public const string Name = "NiButCrazy的奇妙特性";
+    public const string Name = "NiButCrazy 奇妙特性";
 }
 
 /// <summary>
@@ -21,8 +20,6 @@ internal static class PluginConstants
 /// </summary>
 internal sealed class PluginSettings
 {
-    public int AnimationFps { get; set; } = 240;
-
     public bool VariedDefaultSkins { get; set; } = true;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -103,8 +100,7 @@ internal static class PluginBootstrap
             var settings = PluginSettings.Current;
             MigrateLegacySkinDirectory();
             EnsureSkinReadme();
-            ApplyAnimationFps(settings.AnimationFps);
-            WriteLog($"初始化完成：AnimationFps={settings.AnimationFps}, VariedDefaultSkins={settings.VariedDefaultSkins}");
+            WriteLog($"初始化完成：VariedDefaultSkins={settings.VariedDefaultSkins}");
         }
         catch (Exception ex)
         {
@@ -137,47 +133,9 @@ internal static class PluginBootstrap
         if (File.Exists(readmePath)) return;
         File.WriteAllText(readmePath,
             "把 Minecraft 皮肤 PNG（64x64 或 64x32）放到这个目录，文件名使用玩家 ID。\r\n" +
-            "例如：Skins\\NiButCrazy.png\r\n" +
+            "例如：Skin\\NiButCrazy.png\r\n" +
             "也可以用离线 UUID 命名，或使用 default.png 作为所有离线账号的默认皮肤。\r\n" +
             "重新打开启动器或刷新皮肤后生效。\r\n");
-    }
-
-    /// <summary>
-    /// 通过反射写入动画帧率配置。PCL.Core 的配置组类型是 internal，
-    /// 但公开属性仍然可以通过反射访问。
-    /// </summary>
-    private static void ApplyAnimationFps(int target)
-    {
-        if (target <= 0) return;
-
-        var systemField = typeof(Config).GetField(
-            "System",
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
-        var group = systemField?.GetValue(null);
-        if (group is null)
-        {
-            WriteLog("未找到 Config.System，跳过动画帧率设置");
-            return;
-        }
-
-        var fpsProperty = group.GetType().GetProperty(
-            "AnimationFpsLimit",
-            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        if (fpsProperty is null || !fpsProperty.CanWrite)
-        {
-            WriteLog("未找到可写的 AnimationFpsLimit，跳过动画帧率设置");
-            return;
-        }
-
-        var current = fpsProperty.GetValue(group) is int value ? value : 0;
-        if (current >= target)
-        {
-            WriteLog($"当前动画帧率配置已为 {current}，无需修改");
-            return;
-        }
-
-        fpsProperty.SetValue(group, target);
-        WriteLog($"动画帧率配置已设置为 {target}");
     }
 
     /// <summary>
