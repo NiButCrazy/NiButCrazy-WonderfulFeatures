@@ -1,9 +1,9 @@
 {
   "id": "nibutcrazy.wonderful-features",
   "name": "NiButCrazy 奇妙特性",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "NiButCrazy",
-  "description": "离线皮肤自定义、离线档案换肤、默认头像多样化与只读头像截取。",
+  "description": "离线皮肤与头像增强、下载搜索词继承、资源排序记忆。",
   "logo": "assets/icon.png",
   "pclCoreVersion": "2026.07.1",
   "entryAssembly": "lib/PCL.Plugin.NiButCrazy.dll",

@@ -3,7 +3,10 @@
   "mixins": [
     "PCL.Plugin.NiButCrazy.Mixins.OfflineSkinMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ProfileSkinMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.AvatarMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.AvatarMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.DownloadSearchMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.DownloadPageMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin"
   ],
   "priority": 1000,
   "injectors": {

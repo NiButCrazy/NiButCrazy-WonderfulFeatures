@@ -22,6 +22,11 @@ internal sealed class PluginSettings
 {
     public bool VariedDefaultSkins { get; set; } = true;
 
+    /// <summary>
+    /// 资源管理页记住的排序方式，1 = 资源名（PCL 默认）。
+    /// </summary>
+    public int CompSortMethod { get; set; } = 1;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -50,6 +55,23 @@ internal sealed class PluginSettings
     public static string ConfigPath => Path.Combine(DataDirectory, "config.json");
 
     public static string LogPath => Path.Combine(DataDirectory, "plugin.log");
+
+    public static void Save()
+    {
+        lock (SyncRoot)
+        {
+            if (_current is null) return;
+            try
+            {
+                Directory.CreateDirectory(DataDirectory);
+                File.WriteAllText(ConfigPath, JsonSerializer.Serialize(_current, JsonOptions));
+            }
+            catch (Exception ex)
+            {
+                PluginBootstrap.WriteLog("保存配置失败：" + ex);
+            }
+        }
+    }
 
     private static PluginSettings Load()
     {
