@@ -1,0 +1,34 @@
+{
+  "id": "nibutcrazy.wonderful-features",
+  "name": "NiButCrazy 奇妙特性",
+  "author": {
+    "githubLogin": "NiButCrazy",
+    "displayName": "NiButCrazy"
+  },
+  "description": "离线皮肤与头像增强、下载搜索词继承、资源排序记忆、中文搜索增强、Mod 列表加载优化。",
+  "readmeUrl": "README.md",
+  "repository": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures",
+  "logo": "assets/icon.png",
+  "group": "Utilities",
+  "tags": [
+    "skin",
+    "search",
+    "performance",
+    "ui"
+  ],
+  "versions": [
+    {
+      "version": "1.6.0",
+      "pclCoreVersion": "2026.07.1",
+      "downloads": {
+        "windows": {
+          "anycpu": {
+            "packageUrl": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/download/v1.6.0/nibutcrazy.wonderful-features-windows-anycpu.pclx",
+            "sha256": "ee10d385490b58f14f06427e99fbed3b05941177d5122a75c8002ef454649e68"
+          }
+        }
+      },
+      "releaseNotes": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/tag/v1.6.0"
+    }
+  ]
+}
