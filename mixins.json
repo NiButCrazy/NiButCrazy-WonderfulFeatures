@@ -8,7 +8,9 @@
     "PCL.Plugin.NiButCrazy.Mixins.DownloadPageMixin",
     "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ChineseSearchMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin"
   ],
   "priority": 1000,
   "injectors": {

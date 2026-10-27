@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -93,7 +95,7 @@ internal static class SearchCancellationFixMixin
 [Mixin("PCL.PageInstanceCompResource")]
 internal static class ModListLoadMixin
 {
-    private const int BatchSize = 12;
+    private const int BatchSize = 6;
 
     private static readonly FieldInfo? PanBackField = FindField("PanBack");
     private static readonly FieldInfo? PanEmptyField = FindField("PanEmpty");
@@ -103,6 +105,7 @@ internal static class ModListLoadMixin
     private static readonly FieldInfo? HintBackField = FindField("BtnHintBack");
     private static readonly FieldInfo? SearchBoxField = FindField("SearchBox");
     private static readonly FieldInfo? CompTypeField = FindField("currentCompType");
+    private static readonly FieldInfo? LoadingField = FindField("Load");
 
     private static readonly MethodInfo? BuildItemMethod = typeof(PageInstanceCompResource).GetMethod(
         "BuildLocalCompItem", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -116,7 +119,31 @@ internal static class ModListLoadMixin
     private static readonly Type? SortMethodType = typeof(PageInstanceCompResource).GetNestedType(
         "SortMethod", BindingFlags.Public | BindingFlags.NonPublic);
 
-    private static int _generation;
+    // 每个页面实例单独计数：不同资源页面（Mod/资源包/光影/存档）会并行加载，
+    // 共用 static 计数器会互相取消批次，导致列表永远不更新。
+    private static readonly ConditionalWeakTable<PageInstanceCompResource, StrongBox<int>> Generations = new();
+
+    private static int NextGeneration(PageInstanceCompResource instance)
+    {
+        var box = Generations.GetOrCreateValue(instance);
+        return Interlocked.Increment(ref box.Value);
+    }
+
+    private static bool IsCurrentGeneration(PageInstanceCompResource instance, int generation)
+        => Generations.TryGetValue(instance, out var box) && Volatile.Read(ref box.Value) == generation;
+
+    // 批次进行期间禁止其他路径刷新列表，否则会读到尚未提交的空 modItems，
+    // 表现为首次加载时先显示 0 个模组。
+    private static readonly ConditionalWeakTable<PageInstanceCompResource, StrongBox<bool>> BatchLoading = new();
+
+    internal static bool IsBatchLoading(PageInstanceCompResource instance)
+        => BatchLoading.TryGetValue(instance, out var box) && Volatile.Read(ref box.Value);
+
+    private static void SetBatchLoading(PageInstanceCompResource instance, bool value)
+    {
+        var box = BatchLoading.GetOrCreateValue(instance);
+        Volatile.Write(ref box.Value, value);
+    }
 
     private static FieldInfo? FindField(string name) => typeof(PageInstanceCompResource).GetField(
         name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -126,10 +153,17 @@ internal static class ModListLoadMixin
     {
         try
         {
+            // loader 在列表控件创建完成之前就会报告 Finished，
+            // 手动保持加载动画，避免 UI 还在忙时加载条先消失。
+            SetLoadingState(instance, MyLoading.MyLoadingState.Run);
+            SetBatchLoading(instance, true);
+
             var output = ModLocalComp.compResourceListLoader.output;
             if (output.Count == 0)
             {
+                SetBatchLoading(instance, false);
                 ShowEmptyState(instance);
+                SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
                 return;
             }
 
@@ -137,7 +171,6 @@ internal static class ModListLoadMixin
             SetVisibility(PanEmptyField, instance, Visibility.Collapsed);
             SetVisibility(PanSchematicEmptyField, instance, Visibility.Collapsed);
 
-            instance.modItems.Clear();
             var compType = CompTypeField?.GetValue(instance);
             var rootPath = Path.TrimEndingDirectorySeparator(
                 GetCompFolderMethod?.Invoke(null, [PageInstanceLeft.McInstance, compType]) as string ?? string.Empty);
@@ -152,12 +185,21 @@ internal static class ModListLoadMixin
                 return parentDirectory is not null && FileSystemPath.Equals(parentDirectory, currentFolderPath);
             }).ToList();
 
-            var generation = Interlocked.Increment(ref _generation);
+            var generation = NextGeneration(instance);
             var index = 0;
+            // 批次期间只写入临时字典，保持 modItems 里始终是上一次的完整列表，
+            // 避免搜索/筛选/刷新读到半成品数据。
+            var created = new Dictionary<string, MyLocalCompItem>(StringComparer.Ordinal);
 
             void Finish()
             {
-                if (generation != _generation || instance.Dispatcher.HasShutdownStarted) return;
+                if (!IsCurrentGeneration(instance, generation) || instance.Dispatcher.HasShutdownStarted) return;
+
+                SetBatchLoading(instance, false);
+
+                instance.modItems.Clear();
+                foreach (var pair in created)
+                    instance.modItems[pair.Key] = pair.Value;
 
                 instance.Filter = PageInstanceCompResource.FilterType.All;
                 if (SearchBoxField?.GetValue(instance) is MySearchBox searchBox)
@@ -166,18 +208,20 @@ internal static class ModListLoadMixin
 
                 if (SortMethodType is not null && SetSortMethodMethod is not null)
                     SetSortMethodMethod.Invoke(instance, [Enum.ToObject(SortMethodType, 1)]);
+
+                SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
             }
 
             void ProcessBatch()
             {
-                if (generation != _generation || instance.Dispatcher.HasShutdownStarted) return;
+                if (!IsCurrentGeneration(instance, generation) || instance.Dispatcher.HasShutdownStarted) return;
 
                 var end = Math.Min(index + BatchSize, itemsToShow.Count);
                 for (; index < end; index++)
                 {
                     var entity = itemsToShow[index];
                     var item = (MyLocalCompItem)BuildItemMethod!.Invoke(instance, [entity])!;
-                    instance.modItems[entity.RawPath] = item;
+                    created[entity.RawPath] = item;
                 }
 
                 if (index < itemsToShow.Count)
@@ -193,9 +237,17 @@ internal static class ModListLoadMixin
         }
         catch (Exception ex)
         {
+            SetBatchLoading(instance, false);
+            SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
             PluginBootstrap.WriteLog("分批加载 Mod 列表失败：" + ex);
             ModBase.Log(ex, "加载 Mod 列表 UI 失败", ModBase.LogLevel.Feedback);
         }
+    }
+
+    private static void SetLoadingState(PageInstanceCompResource instance, MyLoading.MyLoadingState state)
+    {
+        if (LoadingField?.GetValue(instance) is MyLoading loading)
+            loading.State.LoadingState = state;
     }
 
     private static void ShowEmptyState(PageInstanceCompResource instance)
@@ -250,5 +302,27 @@ internal static class ModListLoadMixin
     {
         if (field?.GetValue(instance) is System.Windows.Controls.TextBlock block)
             block.Text = text;
+    }
+}
+
+/// <summary>
+/// 批次加载期间抑制列表刷新，避免首次加载时读到空 modItems 而先显示 0 个模组。
+/// 批次完成、modItems 一次性提交后，RefreshUI 会正常执行。
+/// </summary>
+[Mixin("PCL.PageInstanceCompResource")]
+internal static class RefreshSuppressionMixin
+{
+    [Inject("RefreshUI", At = MixinAt.Head, Cancellable = true)]
+    private static void SuppressRefreshUI([This] PageInstanceCompResource instance, CallbackInfo callback)
+    {
+        if (ModListLoadMixin.IsBatchLoading(instance))
+            callback.Cancel();
+    }
+
+    [Inject("RefreshBars", At = MixinAt.Head, Cancellable = true)]
+    private static void SuppressRefreshBars([This] PageInstanceCompResource instance, CallbackInfo callback)
+    {
+        if (ModListLoadMixin.IsBatchLoading(instance))
+            callback.Cancel();
     }
 }
