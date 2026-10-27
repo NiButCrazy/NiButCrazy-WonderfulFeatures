@@ -2,7 +2,7 @@
 
 PCL Nex 的 Mixin 插件，补全官方发布版中缺失的离线皮肤能力，并附带一些启动器体验优化。
 
-当前版本：**1.7.6**
+当前版本：**1.7.10**
 
 ## 功能
 
@@ -11,6 +11,8 @@ PCL Nex 的 Mixin 插件，补全官方发布版中缺失的离线皮肤能力�
 - **离线皮肤**：不再只有 Steve / Alex。支持本地自定义皮肤，默认头像从 9 个官方皮肤中按 UUID 稳定选择。
 - **离线换肤**：离线档案的「皮肤与披风 → 修改皮肤」可以直接选择本地 PNG，不再提示「当前档案不支持修改皮肤！」。
 - **只读头像逻辑**：重写 `MySkin.Load`，只读取皮肤文件并截取头部区域，绝不写回来源皮肤文件。
+- **头像过渡**：头像加载完成后淡入，帽子层略微延迟出现。
+- **启动优化**：启动阶段复用人像缓存并延迟皮肤处理，避免和窗口入场动画抢 UI 线程。
 
 ### 资源管理体验
 
@@ -152,7 +154,7 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | --- | --- | --- |
 | `PageLaunchLeft.SkinLegacyLoad` | Overwrite | 离线皮肤解析与默认皮肤选择 |
 | `PageLoginProfileSkin.Skin_Click` | Inject HEAD | 离线档案的修改皮肤入口 |
-| `MySkin.Load` | Overwrite | 只读皮肤、截取头像、哈希缓存 |
+| `MySkin.Load` | Overwrite | 只读皮肤、截取头像、哈希缓存、淡入过渡、启动阶段延迟 |
 | `ModComp.CompProjectsGet` | Inject HEAD | 中文搜索关键词改写 |
 | `PageInstanceCompResource.BtnManageDownload_Click` | Inject HEAD | 记录下载搜索词 |
 | `PageComp.PageCompControls_Inited` | Inject RETURN | 下载页填充搜索词 |

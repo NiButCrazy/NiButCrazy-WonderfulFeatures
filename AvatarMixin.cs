@@ -3,7 +3,10 @@ using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Animation;
 using PCL.Mixin;
 
 namespace PCL.Plugin.NiButCrazy.Mixins;
@@ -25,6 +28,22 @@ internal static class AvatarMixin
 
     [Overwrite("Load")]
     private static void Load([This] MySkin instance)
+    {
+        // 启动后 2 秒内（窗口入场动画期间）把皮肤处理延后，避免抢占 UI 线程。
+        if (PluginBootstrap.IsStartupWindow)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(700);
+                _ = instance.Dispatcher.BeginInvoke(new Action(() => LoadCore(instance)));
+            });
+            return;
+        }
+
+        LoadCore(instance);
+    }
+
+    private static void LoadCore(MySkin instance)
     {
         var back = BackField?.GetValue(instance) as Image;
         var fore = ForeField?.GetValue(instance) as Image;
@@ -63,21 +82,52 @@ internal static class AvatarMixin
             if (image.PixelHeight >= 64)
                 hat = image.Clip(scale * 40, scale * 8, scale * 8, scale * 8);
 
-            if (fore is not null) fore.Source = hat;
-            if (back is not null) back.Source = face;
+            if (fore is not null)
+            {
+                fore.Source = hat;
+                if (hat is not null)
+                    FadeIn(fore, 180, 30);
+                else
+                    fore.Opacity = 1;
+            }
+            if (back is not null)
+            {
+                back.Source = face;
+                FadeIn(back, 180, 0);
+            }
 
             // 头像缓存只写入独立目录，来源皮肤文件保持只读。
             var headId = BuildHeadId(address);
-            var head = MyBitmap.Create(56, 56)
-                .Overlay(face.Scale(48, 48), 4, 4);
-            if (hat is not null)
-                head = head.Overlay(hat.Scale(56, 56), 0, 0);
-
             var headDirectory = Path.Combine(ModBase.pathTemp, "Cache", "Skin", "Head");
             Directory.CreateDirectory(headDirectory);
-            head.Save(Path.Combine(headDirectory, headId + ".png"));
+            var cachePath = Path.Combine(headDirectory, headId + ".png");
 
-            if (ModProfile.selectedProfile is not null)
+            // 缓存已存在且不比来源文件旧时直接复用，避免每次启动都在 UI 线程
+            // 重建头像、拖慢窗口入场动画。换肤会更新来源文件时间，从而触发重建。
+            var needsRebuild = !File.Exists(cachePath);
+            if (!needsRebuild && File.Exists(address))
+            {
+                try
+                {
+                    needsRebuild = File.GetLastWriteTimeUtc(address) > File.GetLastWriteTimeUtc(cachePath);
+                }
+                catch
+                {
+                    needsRebuild = true;
+                }
+            }
+
+            if (needsRebuild)
+            {
+                var head = MyBitmap.Create(56, 56)
+                    .Overlay(face.Scale(48, 48), 4, 4);
+                if (hat is not null)
+                    head = head.Overlay(hat.Scale(56, 56), 0, 0);
+                head.Save(cachePath);
+            }
+
+            if (ModProfile.selectedProfile is not null &&
+                ModProfile.selectedProfile.SkinHeadId != headId)
             {
                 ModProfile.selectedProfile.SkinHeadId = headId;
                 ModProfile.SaveProfile();
@@ -92,6 +142,22 @@ internal static class AvatarMixin
             if (back is not null) back.Source = null;
             ModBase.Log(ex, "皮肤加载失败", ModBase.LogLevel.Hint);
         }
+    }
+
+    private static void FadeIn(UIElement element, int durationMilliseconds, int delayMilliseconds)
+    {
+        element.Opacity = 0d;
+        var animation = new DoubleAnimation(0d, 1d, TimeSpan.FromMilliseconds(durationMilliseconds))
+        {
+            BeginTime = TimeSpan.FromMilliseconds(delayMilliseconds),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        animation.Completed += (_, _) =>
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            element.Opacity = 1d;
+        };
+        element.BeginAnimation(UIElement.OpacityProperty, animation);
     }
 
     private static string BuildHeadId(string address)

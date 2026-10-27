@@ -114,11 +114,18 @@ public sealed class NiButCrazyConfigPlugin : IMixinConfigPlugin
 internal static class PluginBootstrap
 {
     private static readonly object LogLock = new();
+    private static long _startupTicks;
+
+    /// <summary>
+    /// 插件加载后的短时间内视为启动阶段，用于让出窗口入场动画。
+    /// </summary>
+    public static bool IsStartupWindow => Environment.TickCount64 - _startupTicks < 2000;
 
     public static void Initialize()
     {
         try
         {
+            _startupTicks = Environment.TickCount64;
             var settings = PluginSettings.Current;
             MigrateLegacySkinDirectory();
             EnsureSkinReadme();
