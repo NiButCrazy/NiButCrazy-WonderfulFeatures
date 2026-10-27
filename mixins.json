@@ -10,7 +10,8 @@
     "PCL.Plugin.NiButCrazy.Mixins.ChineseSearchMixin",
     "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin"
   ],
   "priority": 1000,
   "injectors": {

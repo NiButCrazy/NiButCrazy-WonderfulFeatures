@@ -7,9 +7,11 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using PCL.Core.App.Localization;
 using PCL.Core.IO;
+using PCL.Core.UI.Theme;
 using PCL.Mixin;
 
 namespace PCL.Plugin.NiButCrazy.Mixins;
@@ -312,17 +314,179 @@ internal static class ModListLoadMixin
 [Mixin("PCL.PageInstanceCompResource")]
 internal static class RefreshSuppressionMixin
 {
-    [Inject("RefreshUI", At = MixinAt.Head, Cancellable = true)]
-    private static void SuppressRefreshUI([This] PageInstanceCompResource instance, CallbackInfo callback)
-    {
-        if (ModListLoadMixin.IsBatchLoading(instance))
-            callback.Cancel();
-    }
-
     [Inject("RefreshBars", At = MixinAt.Head, Cancellable = true)]
     private static void SuppressRefreshBars([This] PageInstanceCompResource instance, CallbackInfo callback)
     {
         if (ModListLoadMixin.IsBatchLoading(instance))
             callback.Cancel();
+    }
+}
+
+/// <summary>
+/// 增量刷新 Mod 列表：切换筛选 Tab 时不再清空并重建全部控件，
+/// 只移除/插入差异项，并跳过文本未变化的富文本格式化。
+/// </summary>
+[Mixin("PCL.PageInstanceCompResource")]
+internal static class ModListRefreshMixin
+{
+    private static readonly FieldInfo? PanListField = typeof(PageInstanceCompResource).GetField(
+        "PanList", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? SearchResultField = typeof(PageInstanceCompResource).GetField(
+        "searchResult", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? SortField = typeof(PageInstanceCompResource).GetField(
+        "currentSortMethod", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly MethodInfo? CanPassFilterMethod = typeof(PageInstanceCompResource).GetMethod(
+        "CanPassFilter", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly MethodInfo? GetSortMethodMethod = typeof(PageInstanceCompResource).GetMethod(
+        "GetSortMethod", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? LabTitleField = typeof(MyLocalCompItem).GetField(
+        "LabTitle", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? LabInfoField = typeof(MyLocalCompItem).GetField(
+        "LabInfo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly MethodInfo? SetColorfulTextLabMethod =
+        typeof(PageInstanceCompResource).Assembly
+            .GetType("PCL.ModStyle+MinecraftFormatter")
+            ?.GetMethod("SetColorfulTextLab", BindingFlags.Public | BindingFlags.Static,
+                null, [typeof(string), typeof(TextBlock), typeof(bool)], null);
+
+    private static readonly ConditionalWeakTable<MyLocalCompItem, StrongBox<string>> FormatSnapshots = new();
+
+    private static readonly ConditionalWeakTable<PageInstanceCompResource, StrongBox<int>> RefreshGenerations = new();
+
+    private static int NextRefreshGeneration(PageInstanceCompResource instance)
+    {
+        var box = RefreshGenerations.GetOrCreateValue(instance);
+        return Interlocked.Increment(ref box.Value);
+    }
+
+    private static bool IsCurrentRefreshGeneration(PageInstanceCompResource instance, int generation)
+        => RefreshGenerations.TryGetValue(instance, out var box) && Volatile.Read(ref box.Value) == generation;
+
+    [Overwrite("RefreshUI")]
+    private static void RefreshUI([This] PageInstanceCompResource instance)
+    {
+        // 批次加载期间不刷新列表，避免读到尚未提交的 modItems。
+        if (ModListLoadMixin.IsBatchLoading(instance)) return;
+        if (PanListField?.GetValue(instance) is not Panel panList) return;
+
+        try
+        {
+            var generation = NextRefreshGeneration(instance);
+
+            var baseEntries = instance.IsSearching
+                ? (IEnumerable<ModLocalComp.LocalCompFile>)(SearchResultField?.GetValue(instance)
+                    as List<ModLocalComp.LocalCompFile> ?? [])
+                : instance.modItems.Values.Select(item => item.Entry);
+            var canPass = (Func<ModLocalComp.LocalCompFile, bool>)Delegate.CreateDelegate(
+                typeof(Func<ModLocalComp.LocalCompFile, bool>), instance, CanPassFilterMethod!);
+            var showingMods = baseEntries.Where(canPass).ToList();
+
+            if (showingMods.Count > 0)
+            {
+                var sortMethod = (Func<ModLocalComp.LocalCompFile, ModLocalComp.LocalCompFile, int>)
+                    GetSortMethodMethod!.Invoke(instance, [SortField!.GetValue(instance)])!;
+                showingMods.Sort((left, right) => sortMethod(left, right));
+            }
+
+            var desired = new List<(ModLocalComp.LocalCompFile Entry, MyLocalCompItem Item)>();
+            foreach (var entry in showingMods)
+                if (instance.modItems.TryGetValue(entry.RawPath, out var item))
+                    desired.Add((entry, item));
+
+            void Finish()
+            {
+                if (!IsCurrentRefreshGeneration(instance, generation)) return;
+
+                var showingPaths = new HashSet<string>(
+                    showingMods.Select(entry => entry.RawPath ?? string.Empty), StringComparer.Ordinal);
+                instance.selectedMods.RemoveWhere(path => !showingPaths.Contains(path ?? string.Empty));
+                instance.RefreshBars();
+            }
+
+            if (desired.Count == 0)
+            {
+                panList.Visibility = Visibility.Collapsed;
+                Finish();
+                return;
+            }
+
+            panList.Visibility = Visibility.Visible;
+
+            // 先移除不再显示的项；插入与首次格式化放到后续帧，避免几百项一次性阻塞。
+            var desiredItems = new HashSet<MyLocalCompItem>(desired.Select(pair => pair.Item));
+            for (var i = panList.Children.Count - 1; i >= 0; i--)
+                if (panList.Children[i] is MyLocalCompItem item && !desiredItems.Contains(item))
+                    panList.Children.RemoveAt(i);
+
+            var index = 0;
+            const int batchSize = 16;
+
+            void ProcessBatch()
+            {
+                if (!IsCurrentRefreshGeneration(instance, generation) ||
+                    instance.Dispatcher.HasShutdownStarted)
+                    return;
+
+                ModAnimation.AniBeginControl();
+                try
+                {
+                    var end = Math.Min(index + batchSize, desired.Count);
+                    var isDark = ThemeService.IsDarkMode;
+                    for (; index < end; index++)
+                    {
+                        var (entry, item) = desired[index];
+                        if (item.Parent is Panel parent && !ReferenceEquals(parent, panList))
+                            parent.Children.Remove(item);
+
+                        var currentIndex = panList.Children.IndexOf(item);
+                        if (currentIndex != index)
+                        {
+                            if (currentIndex >= 0) panList.Children.RemoveAt(currentIndex);
+                            panList.Children.Insert(index, item);
+                        }
+
+                        item.Checked = instance.selectedMods.Contains(entry.RawPath);
+
+                        var titleBlock = LabTitleField?.GetValue(item) as TextBlock;
+                        var infoBlock = LabInfoField?.GetValue(item) as TextBlock;
+                        if (titleBlock is null || infoBlock is null) continue;
+
+                        var snapshot = (isDark ? "D" : "L") + "\n" + titleBlock.Text + "\n" + infoBlock.Text;
+                        var box = FormatSnapshots.GetOrCreateValue(item);
+                        if (box.Value == snapshot) continue;
+
+                        SetColorfulTextLabMethod?.Invoke(null, [titleBlock.Text, titleBlock, isDark]);
+                        SetColorfulTextLabMethod?.Invoke(null, [infoBlock.Text, infoBlock, isDark]);
+                        box.Value = snapshot;
+                    }
+                }
+                finally
+                {
+                    ModAnimation.AniEndControl();
+                }
+
+                if (index < desired.Count)
+                    instance.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ProcessBatch));
+                else
+                    Finish();
+            }
+
+            if (instance.Dispatcher.CheckAccess())
+                ProcessBatch();
+            else
+                instance.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ProcessBatch));
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("增量刷新 Mod 列表失败：" + ex);
+            ModBase.Log(ex, "刷新 Mod 列表 UI 失败", ModBase.LogLevel.Feedback);
+        }
     }
 }
