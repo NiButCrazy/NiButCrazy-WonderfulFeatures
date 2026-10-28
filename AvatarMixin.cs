@@ -26,6 +26,15 @@ internal static class AvatarMixin
     private static readonly FieldInfo? ForeField = typeof(MySkin).GetField(
         "ImgFore", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+    private static readonly FieldInfo? ProfileSkinPageField = typeof(PageLoginProfileSkin).GetField(
+        "Skin", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? TextNameField = typeof(PageLoginProfileSkin).GetField(
+        "TextName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? TextTypeField = typeof(PageLoginProfileSkin).GetField(
+        "TextType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
     [Overwrite("Load")]
     private static void Load([This] MySkin instance)
     {
@@ -86,15 +95,17 @@ internal static class AvatarMixin
             {
                 fore.Source = hat;
                 if (hat is not null)
-                    FadeIn(fore, 180, 30);
+                    FadeIn(fore, 360, 60);
                 else
                     fore.Opacity = 1;
             }
             if (back is not null)
             {
                 back.Source = face;
-                FadeIn(back, 180, 0);
+                FadeIn(back, 360, 0);
             }
+
+            FadeProfileText(instance);
 
             // 头像缓存只写入独立目录，来源皮肤文件保持只读。
             var headId = BuildHeadId(address);
@@ -144,6 +155,27 @@ internal static class AvatarMixin
         }
     }
 
+    private static void FadeProfileText(MySkin instance)
+    {
+        try
+        {
+            var page = ModMain.frmLoginProfileSkin;
+            if (page is null) return;
+            if (ProfileSkinPageField?.GetValue(page) is not MySkin pageSkin ||
+                !ReferenceEquals(pageSkin, instance))
+                return;
+
+            if (TextNameField?.GetValue(page) is UIElement name)
+                FadeIn(name, 360, 30);
+            if (TextTypeField?.GetValue(page) is UIElement type)
+                FadeIn(type, 360, 60);
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("昵称过渡失败：" + ex);
+        }
+    }
+
     private static void FadeIn(UIElement element, int durationMilliseconds, int delayMilliseconds)
     {
         element.Opacity = 0d;
@@ -164,5 +196,32 @@ internal static class AvatarMixin
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(address));
         return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+}
+
+/// <summary>
+/// 在档案皮肤页刷新文字之前先把它设为透明，
+/// 等 MySkin.Load 完成后与头像一起淡入，避免「不透明 → 透明 → 不透明」。
+/// </summary>
+[Mixin("PCL.PageLoginProfileSkin")]
+internal static class ProfileTextFadeMixin
+{
+    private static readonly FieldInfo? TextNameField = typeof(PageLoginProfileSkin).GetField(
+        "TextName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly FieldInfo? TextTypeField = typeof(PageLoginProfileSkin).GetField(
+        "TextType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    [Inject("Reload", At = MixinAt.Head)]
+    private static void HideTextBeforeReload([This] PageLoginProfileSkin instance)
+    {
+        Hide(TextNameField, instance);
+        Hide(TextTypeField, instance);
+    }
+
+    private static void Hide(FieldInfo? field, object instance)
+    {
+        if (field?.GetValue(instance) is UIElement element)
+            element.Opacity = 0d;
     }
 }

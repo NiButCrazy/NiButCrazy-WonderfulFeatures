@@ -11,7 +11,8 @@
     "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",
     "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.ProfileTextFadeMixin"
   ],
   "priority": 1000,
   "injectors": {
