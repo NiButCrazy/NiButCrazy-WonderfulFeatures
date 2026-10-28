@@ -60,6 +60,9 @@ PCL/Plugins/nibutcrazy.wonderful-features/
 
 ## 自定义离线皮肤
 
+> **注意：本插件的离线皮肤只影响启动器内的头像和皮肤预览，不会修改游戏内皮肤。**
+> 进游戏后要显示皮肤，仍需要服务端插件（如 SkinsRestorer）或客户端 Mod（如 CustomSkinLoader）配合。
+
 ### 在启动器中换肤
 
 选中离线档案 → **皮肤与披风 → 修改皮肤** → 选择本地 PNG。
