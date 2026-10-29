@@ -155,6 +155,9 @@ internal static class SortMemoryMixin
 
             Interlocked.Exchange(ref _restoring, 1);
             SetSortMethodMethod?.Invoke(instance, [Enum.ToObject(sortField.FieldType, saved)]);
+            // SetSortMethod 内部的 DoSort 会重排现有控件，但 RefreshUI 的分帧批次
+            // 可能仍在按旧排序插入；这里重新启动 RefreshUI 以取消旧批次。
+            instance.RefreshUI();
         }
         catch (Exception ex)
         {
