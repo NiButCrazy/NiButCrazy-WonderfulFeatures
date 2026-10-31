@@ -107,7 +107,10 @@ internal static class ModListLoadMixin
     private static readonly FieldInfo? HintBackField = FindField("BtnHintBack");
     private static readonly FieldInfo? SearchBoxField = FindField("SearchBox");
     private static readonly FieldInfo? CompTypeField = FindField("currentCompType");
+    private static readonly FieldInfo? CurrentSortField = FindField("currentSortMethod");
     private static readonly FieldInfo? LoadingField = FindField("Load");
+    private static readonly FieldInfo? FilterAllField = FindField("BtnFilterAll");
+    private static readonly FieldInfo? SortButtonField = FindField("BtnSort");
 
     private static readonly MethodInfo? BuildItemMethod = typeof(PageInstanceCompResource).GetMethod(
         "BuildLocalCompItem", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -117,6 +120,9 @@ internal static class ModListLoadMixin
 
     private static readonly MethodInfo? SetSortMethodMethod = typeof(PageInstanceCompResource).GetMethod(
         "SetSortMethod", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private static readonly MethodInfo? GetSortMethodMethod = typeof(PageInstanceCompResource).GetMethod(
+        "GetSortMethod", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
     private static readonly Type? SortMethodType = typeof(PageInstanceCompResource).GetNestedType(
         "SortMethod", BindingFlags.Public | BindingFlags.NonPublic);
@@ -147,6 +153,31 @@ internal static class ModListLoadMixin
         Volatile.Write(ref box.Value, value);
     }
 
+    // 从开始加载到列表全部就绪之间保持为 true，用于抑制计数刷新。
+    private static readonly ConditionalWeakTable<PageInstanceCompResource, StrongBox<bool>> LoadingInProgress = new();
+
+    internal static bool IsLoadingInProgress(PageInstanceCompResource instance)
+        => LoadingInProgress.TryGetValue(instance, out var box) && Volatile.Read(ref box.Value);
+
+    private static void SetLoadingInProgress(PageInstanceCompResource instance, bool value)
+    {
+        var box = LoadingInProgress.GetOrCreateValue(instance);
+        Volatile.Write(ref box.Value, value);
+    }
+
+    private static void ShowSortingTexts(PageInstanceCompResource instance)
+    {
+        SetControlText(FilterAllField, instance, "统计中");
+        SetControlText(SortButtonField, instance, Lang.Text("Instance.Resource.Sort.Text", "排序中"));
+    }
+
+    private static void SetControlText(FieldInfo? field, object instance, string text)
+    {
+        var control = field?.GetValue(instance);
+        control?.GetType().GetProperty("Text", BindingFlags.Instance | BindingFlags.Public)
+            ?.SetValue(control, text);
+    }
+
     private static FieldInfo? FindField(string name) => typeof(PageInstanceCompResource).GetField(
         name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
@@ -159,11 +190,13 @@ internal static class ModListLoadMixin
             // 手动保持加载动画，避免 UI 还在忙时加载条先消失。
             SetLoadingState(instance, MyLoading.MyLoadingState.Run);
             SetBatchLoading(instance, true);
+            SetLoadingInProgress(instance, true);
 
             var output = ModLocalComp.compResourceListLoader.output;
             if (output.Count == 0)
             {
                 SetBatchLoading(instance, false);
+                SetLoadingInProgress(instance, false);
                 ShowEmptyState(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
                 return;
@@ -187,17 +220,53 @@ internal static class ModListLoadMixin
                 return parentDirectory is not null && FileSystemPath.Equals(parentDirectory, currentFolderPath);
             }).ToList();
 
+            ShowSortingTexts(instance);
+
             var generation = NextGeneration(instance);
-            var index = 0;
-            // 批次期间只写入临时字典，保持 modItems 里始终是上一次的完整列表，
-            // 避免搜索/筛选/刷新读到半成品数据。
+
+            // 先按保存的排序排列，确保首批就是最终排序里最靠前的 24 个。
+            var savedSort = PluginSettings.Current.CompSortMethod;
+            if (CurrentSortField is not null)
+            {
+                var sortValue = Enum.IsDefined(CurrentSortField.FieldType, savedSort)
+                    ? Enum.ToObject(CurrentSortField.FieldType, savedSort)
+                    : Enum.ToObject(CurrentSortField.FieldType, 1);
+                CurrentSortField.SetValue(instance, sortValue);
+
+                if (GetSortMethodMethod is not null && itemsToShow.Count > 1)
+                {
+                    var sortMethod = (Func<ModLocalComp.LocalCompFile, ModLocalComp.LocalCompFile, int>)
+                        GetSortMethodMethod.Invoke(instance, [sortValue])!;
+                    itemsToShow.Sort((left, right) => sortMethod(left, right));
+                }
+            }
+
+            // 先同步创建首批并立即放入列表，确保 PageLoaderState 切换时
+            // 列表已经有内容，不会出现空白页面；剩余项继续分批创建。
             var created = new Dictionary<string, MyLocalCompItem>(StringComparer.Ordinal);
+            var initialCount = Math.Min(16, itemsToShow.Count);
+            for (var i = 0; i < initialCount; i++)
+            {
+                var entity = itemsToShow[i];
+                created[entity.RawPath] = (MyLocalCompItem)BuildItemMethod!.Invoke(instance, [entity])!;
+            }
+
+            instance.modItems.Clear();
+            foreach (var pair in created)
+                instance.modItems[pair.Key] = pair.Value;
+            SetBatchLoading(instance, false);
+            instance.RefreshUI();
+            SetBatchLoading(instance, true);
+            ShowSortingTexts(instance);
+
+            var index = initialCount;
 
             void Finish()
             {
                 if (!IsCurrentGeneration(instance, generation) || instance.Dispatcher.HasShutdownStarted) return;
 
                 SetBatchLoading(instance, false);
+                SetLoadingInProgress(instance, false);
 
                 instance.modItems.Clear();
                 foreach (var pair in created)
@@ -240,6 +309,7 @@ internal static class ModListLoadMixin
         catch (Exception ex)
         {
             SetBatchLoading(instance, false);
+            SetLoadingInProgress(instance, false);
             SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
             PluginBootstrap.WriteLog("分批加载 Mod 列表失败：" + ex);
             ModBase.Log(ex, "加载 Mod 列表 UI 失败", ModBase.LogLevel.Feedback);
@@ -317,7 +387,7 @@ internal static class RefreshSuppressionMixin
     [Inject("RefreshBars", At = MixinAt.Head, Cancellable = true)]
     private static void SuppressRefreshBars([This] PageInstanceCompResource instance, CallbackInfo callback)
     {
-        if (ModListLoadMixin.IsBatchLoading(instance))
+        if (ModListLoadMixin.IsBatchLoading(instance) || ModListLoadMixin.IsLoadingInProgress(instance))
             callback.Cancel();
     }
 }
