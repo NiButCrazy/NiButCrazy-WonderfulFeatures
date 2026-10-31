@@ -2,7 +2,7 @@
 
 PCL Nex 的 Mixin 插件，以模组列表加载、筛选切换与排序体验优化为主，同时补全离线皮肤、中文搜索等启动器功能。
 
-当前版本：**1.8.0**
+当前版本：**1.9.0**
 
 ## 功能
 
@@ -13,6 +13,7 @@ PCL Nex 的 Mixin 插件，以模组列表加载、筛选切换与排序体验�
 - **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
 - **Mod 列表加载优化**：首批 16 个同步显示，剩余项分批创建；筛选 Tab 切换采用增量更新和分帧刷新；加载期间筛选和排序显示「统计中 / 排序：排序中」，避免空白列表或错误计数。
 - **搜索取消异常修复**：不再反复输出 `CancellationTokenSource has been disposed` 日志。
+- **本地 Mod 图标**：读取 Forge / NeoForge 的 `mods.toml` / `neoforge.mods.toml` 中的 `logoFile`，后台提取并缓存；在线图标仍然优先。
 
 ### 离线皮肤与头像
 
@@ -168,6 +169,7 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.LoadUIFromLoaderOutput` | Overwrite | 分批创建 Mod 控件并保持加载动画 |
 | `PageInstanceCompResource.RefreshUI` | Overwrite | 增量刷新、分帧插入与格式化 |
 | `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新 |
+| `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
 
 PCL Nex 更新后如果这些方法签名变化，插件会加载失败并被启动器自动禁用，`plugin.log` 中会记录原因。
 

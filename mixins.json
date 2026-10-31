@@ -12,7 +12,8 @@
     "PCL.Plugin.NiButCrazy.Mixins.ProfileTextFadeMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",
     "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.LocalIconMixin"
   ],
   "priority": 1000,
   "injectors": {
