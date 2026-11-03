@@ -184,6 +184,10 @@ internal static class ModListLoadMixin
     [Overwrite("LoadUIFromLoaderOutput")]
     private static void LoadUIFromLoaderOutput([This] PageInstanceCompResource instance)
     {
+        // 四个资源页共用同一个 loader，完成事件会通知所有页面；
+        // 类型不匹配时直接跳过，避免资源包加载把隐藏的模组页列表清空。
+        if (!LocalListCacheMixin.IsOutputForPage(instance)) return;
+
         try
         {
             // loader 在列表控件创建完成之前就会报告 Finished，
@@ -198,6 +202,7 @@ internal static class ModListLoadMixin
                 SetBatchLoading(instance, false);
                 SetLoadingInProgress(instance, false);
                 ShowEmptyState(instance);
+                LocalListCacheMixin.MarkLoaded(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
                 return;
             }
@@ -280,6 +285,7 @@ internal static class ModListLoadMixin
                 if (SortMethodType is not null && SetSortMethodMethod is not null)
                     SetSortMethodMethod.Invoke(instance, [Enum.ToObject(SortMethodType, 1)]);
 
+                LocalListCacheMixin.MarkLoaded(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
             }
 
@@ -308,6 +314,7 @@ internal static class ModListLoadMixin
         }
         catch (Exception ex)
         {
+            LocalListCacheMixin.Invalidate(instance);
             SetBatchLoading(instance, false);
             SetLoadingInProgress(instance, false);
             SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
@@ -378,17 +385,64 @@ internal static class ModListLoadMixin
 }
 
 /// <summary>
-/// 批次加载期间抑制列表刷新，避免首次加载时读到空 modItems 而先显示 0 个模组。
-/// 批次完成、modItems 一次性提交后，RefreshUI 会正常执行。
+/// RefreshBars 的两处配合：批次加载期间抑制计数刷新；以及等原版异步统计结束后
+/// 用本地检测结果校正「重复」按钮（避免先被在线结果覆盖、再延迟纠正造成闪烁）。
 /// </summary>
 [Mixin("PCL.PageInstanceCompResource")]
-internal static class RefreshSuppressionMixin
+internal static class RefreshBarsMixin
 {
     [Inject("RefreshBars", At = MixinAt.Head, Cancellable = true)]
     private static void SuppressRefreshBars([This] PageInstanceCompResource instance, CallbackInfo callback)
     {
         if (ModListLoadMixin.IsBatchLoading(instance) || ModListLoadMixin.IsLoadingInProgress(instance))
             callback.Cancel();
+    }
+
+    /// <summary>
+    /// 原版把统计逻辑放进 Dispatcher 上的一段 async lambda，方法本身立即返回，
+    /// 拿不到它的完成时刻。这里把传给 BeginInvoke 的委托包一层，
+    /// 等整个异步统计结束后再统一刷新一次「重复」按钮。
+    /// </summary>
+    [ModifyArg("RefreshBars",
+        Target = "System.Windows.Threading.Dispatcher::BeginInvoke(System.Delegate, System.Object[])",
+        Index = 0)]
+    private static Delegate WrapRefreshBarsDelegate(Delegate method)
+    {
+        var page = FindPage(method);
+        if (page is null) return method;
+
+        return new Func<Task>(async () =>
+        {
+            try
+            {
+                if (method is Func<Task> factory)
+                    await factory();
+                else
+                    method.DynamicInvoke();
+            }
+            finally
+            {
+                DuplicateDetectMixin.ApplyAfterRefreshBars(page);
+            }
+        });
+    }
+
+    /// <summary>
+    /// async lambda 通常直接以页面实例作为委托 Target；如果编译器生成了闭包类，
+    /// 则在闭包里找一下它持有的页面引用。
+    /// </summary>
+    private static PageInstanceCompResource? FindPage(Delegate method)
+    {
+        if (method.Target is PageInstanceCompResource page) return page;
+        if (method.Target is not { } target) return null;
+
+        foreach (var field in target.GetType()
+                     .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            if (field.FieldType == typeof(PageInstanceCompResource) &&
+                field.GetValue(target) is PageInstanceCompResource owner)
+                return owner;
+
+        return null;
     }
 }
 
@@ -444,6 +498,11 @@ internal static class ModListRefreshMixin
     {
         // 批次加载期间不刷新列表，避免读到尚未提交的 modItems。
         if (ModListLoadMixin.IsBatchLoading(instance)) return;
+
+        // 列表内容可能已变化（启禁用、联网信息回填），先刷新本地重复项缓存，
+        // 后续 CanPassFilter 的「重复」筛选直接查表。
+        DuplicateDetectMixin.RefreshCache(instance);
+
         if (PanListField?.GetValue(instance) is not Panel panList) return;
 
         try

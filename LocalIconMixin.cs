@@ -116,12 +116,17 @@ internal static class LocalIconMixin
             if (line.Length == 0 || line.StartsWith("#", StringComparison.Ordinal))
                 continue;
 
-            if (line.StartsWith("[", StringComparison.Ordinal) &&
-                line.EndsWith("]", StringComparison.Ordinal))
+            if (line.StartsWith("[", StringComparison.Ordinal))
             {
-                var section = line.Trim('[', ']').Trim();
-                inModsSection = section.Equals("mods", StringComparison.OrdinalIgnoreCase);
-                continue;
+                // 段头后面可能带行内注释，例如 [[mods]] #mandatory；
+                // 只取第一个 ] 之前的内容，否则这种常见写法会让整个 mods 段被跳过。
+                var headerEnd = line.IndexOf(']');
+                if (headerEnd > 0)
+                {
+                    var section = line[..(headerEnd + 1)].Trim('[', ']').Trim();
+                    inModsSection = section.Equals("mods", StringComparison.OrdinalIgnoreCase);
+                    continue;
+                }
             }
 
             if (!inModsSection) continue;

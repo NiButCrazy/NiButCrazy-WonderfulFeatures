@@ -11,9 +11,12 @@
     "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ProfileTextFadeMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.RefreshSuppressionMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.RefreshBarsMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListRefreshMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.LocalIconMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.LocalIconMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.DuplicateDetectMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.LocalListCacheMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.SortFileInfoMixin"
   ],
   "priority": 1000,
   "injectors": {
