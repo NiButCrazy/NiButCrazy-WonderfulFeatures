@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using PCL.Mixin;
 
@@ -17,6 +18,10 @@ namespace PCL.Plugin.NiButCrazy.Mixins;
 internal static class LocalIconMixin
 {
     private static readonly ConditionalWeakTable<ModLocalComp.LocalCompFile, StrongBox<bool>> Checked = new();
+
+    // 列表加载时会有几百个 Mod 同时进入 GetLogo。限制并发解压数量，
+    // 避免一次性开几百个 zip 抢 CPU/磁盘，导致加载动画掉帧。
+    private static readonly SemaphoreSlim ExtractGate = new(2, 2);
 
     [Overwrite("GetLogo")]
     private static string GetLogo([This] ModLocalComp.LocalCompFile instance)
@@ -46,10 +51,15 @@ internal static class LocalIconMixin
               loader.Equals("NeoForge", StringComparison.OrdinalIgnoreCase)))
             return;
 
-        _ = Task.Run(() =>
+        _ = Task.Run(async () =>
         {
+            await ExtractGate.WaitAsync().ConfigureAwait(false);
             try
             {
+                // 排队期间联网图标可能已经返回，这时不需要再解压 jar。
+                if (instance.Comp is not null && instance.Comp.LogoUrl is not null) return;
+                if (!string.IsNullOrWhiteSpace(instance.Logo)) return;
+
                 var target = ExtractLogoPath(instance);
                 if (target is null) return;
 
@@ -66,6 +76,10 @@ internal static class LocalIconMixin
             catch (Exception ex)
             {
                 PluginBootstrap.WriteLog("提取 Forge 本地图标失败：" + ex);
+            }
+            finally
+            {
+                ExtractGate.Release();
             }
         });
     }

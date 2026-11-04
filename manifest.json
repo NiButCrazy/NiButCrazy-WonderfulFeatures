@@ -5,7 +5,7 @@
     "githubLogin": "NiButCrazy",
     "displayName": "NiButCrazy"
   },
-  "description": "离线皮肤与头像增强、下载搜索词继承、资源排序记忆、中文搜索增强、Mod 列表加载优化。",
+  "description": "以资源列表加载与切换性能优化、本地/离线模组支持为主，包含页面缓存、本地图标、重复项检测、离线皮肤与搜索增强。",
   "readmeUrl": "README.md",
   "repository": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures",
   "logo": "assets/icon.png",

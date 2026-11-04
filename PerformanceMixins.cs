@@ -282,8 +282,15 @@ internal static class ModListLoadMixin
                     searchBox.Text = string.Empty;
                 instance.RefreshUI();
 
+                // 直接使用保存的排序方式。原版固定切到资源名，会让排序记忆再恢复一次，
+                // 白白多启动一轮整表 RefreshUI，正好卡在加载动画结束的时刻。
                 if (SortMethodType is not null && SetSortMethodMethod is not null)
-                    SetSortMethodMethod.Invoke(instance, [Enum.ToObject(SortMethodType, 1)]);
+                {
+                    var finalSort = Enum.IsDefined(SortMethodType, savedSort)
+                        ? Enum.ToObject(SortMethodType, savedSort)
+                        : Enum.ToObject(SortMethodType, 1);
+                    SetSortMethodMethod.Invoke(instance, [finalSort]);
+                }
 
                 LocalListCacheMixin.MarkLoaded(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
@@ -499,7 +506,7 @@ internal static class ModListRefreshMixin
         // 批次加载期间不刷新列表，避免读到尚未提交的 modItems。
         if (ModListLoadMixin.IsBatchLoading(instance)) return;
 
-        // 列表内容可能已变化（启禁用、联网信息回填），先刷新本地重复项缓存，
+        // 列表内容可能已变化（启禁用、联网信息回填），刷新本地重复项缓存，
         // 后续 CanPassFilter 的「重复」筛选直接查表。
         DuplicateDetectMixin.RefreshCache(instance);
 

@@ -1,6 +1,6 @@
 # NiButCrazy 奇妙特性
 
-PCL Nex 的 Mixin 插件，以模组列表加载、筛选切换与排序体验优化为主，同时补全离线皮肤、中文搜索等启动器功能。
+PCL Nex 的 Mixin 插件，以资源列表加载与切换性能优化、本地/离线模组支持为主，同时补全离线皮肤、中文搜索等启动器功能。
 
 当前版本：**1.9.0**
 
@@ -13,7 +13,6 @@ PCL Nex 的 Mixin 插件，以模组列表加载、筛选切换与排序体验�
 - **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
 - **Mod 列表加载优化**：首批 16 个同步显示，剩余项分批创建；筛选 Tab 切换采用增量更新和分帧刷新；加载期间筛选和排序显示「统计中 / 排序：排序中」，避免空白列表或错误计数。
 - **页面切换缓存**：在模组、资源包、光影包、投影原理图之间切换时，如果目录内容没有变化，直接复用上一次的列表，不再重新扫描并弹出加载动画；下载、启禁用、手动刷新等操作仍会强制重载。
-- **投影文件夹排序修复**：按「加入时间」排序时，文件夹不再被当作文件读取，避免反复输出「获取模组信息失败」的 `FileNotFoundException` 日志。
 - **搜索取消异常修复**：不再反复输出 `CancellationTokenSource has been disposed` 日志。
 - **本地重复 Mod 检测**：「重复」筛选不再只依赖联网匹配到的资源项目，还会按 jar 内解析出的 `modId` 分组，未收录或联网失败的本地 Mod（如两份不同版本的同一个 Mod）也能被发现。
 - **本地 Mod 图标**：读取 Forge / NeoForge 的 `mods.toml` / `neoforge.mods.toml` 中的 `logoFile`，后台提取并缓存；在线图标仍然优先。兼容 `[[mods]] #mandatory` 这类带行内注释的段头。
@@ -174,7 +173,6 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.RefreshUI` | Overwrite | 增量刷新、分帧插入与格式化 |
 | `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新 |
 | `PageInstanceCompResource.CanPassFilter` | Inject HEAD | 「重复」筛选补充基于本地 `modId` 的检测 |
-| `PageInstanceCompResource.GetModFileInfo` | Inject HEAD | 目录直接返回创建时间，避免 `FileInfo` 异常日志 |
 | `PageInstanceCompResource.RefreshBars` | Inject HEAD | 校正本地重复项计数与「重复」按钮可见性 |
 | `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
 
