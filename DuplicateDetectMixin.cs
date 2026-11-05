@@ -22,6 +22,9 @@ internal static class DuplicateDetectMixin
     private static readonly FieldInfo? BtnFilterDuplicateField = typeof(PageInstanceCompResource).GetField(
         "BtnFilterDuplicate", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+    private static readonly FieldInfo? SearchResultField = typeof(PageInstanceCompResource).GetField(
+        "searchResult", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
     private sealed class DuplicateState
     {
         public bool Initialized;
@@ -113,6 +116,18 @@ internal static class DuplicateDetectMixin
         if (state.Paths.Count == 0) return 0;
 
         var count = 0;
+
+        // 搜索时列表展示的是 searchResult，按钮计数也必须跟它一致，
+        // 否则会出现「重复 (2)」但点进去是空列表。
+        if (instance.IsSearching)
+        {
+            if (SearchResultField?.GetValue(instance) is List<ModLocalComp.LocalCompFile> results)
+                foreach (var entry in results)
+                    if (entry is not null && state.Paths.Contains(entry.RawPath ?? string.Empty))
+                        count++;
+            return count;
+        }
+
         foreach (var key in instance.modItems.Keys)
             if (state.Paths.Contains(key))
                 count++;
