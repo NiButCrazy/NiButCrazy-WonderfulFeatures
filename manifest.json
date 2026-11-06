@@ -8,7 +8,7 @@
   "description": "以资源列表加载与切换性能优化、本地/离线模组支持为主，包含页面缓存、本地图标、重复项检测、离线皮肤与搜索增强。",
   "readmeUrl": "README.md",
   "repository": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures",
-  "logo": "assets/icon.png",
+  "logo": "assets/icon.png?v=fbc97a1e",
   "group": "实用",
   "tags": [
     "skin",
