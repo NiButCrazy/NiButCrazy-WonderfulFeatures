@@ -249,7 +249,7 @@ internal static class ModListLoadMixin
             // 先同步创建首批并立即放入列表，确保 PageLoaderState 切换时
             // 列表已经有内容，不会出现空白页面；剩余项继续分批创建。
             var created = new Dictionary<string, MyLocalCompItem>(StringComparer.Ordinal);
-            var initialCount = Math.Min(16, itemsToShow.Count);
+            var initialCount = Math.Min(13, itemsToShow.Count);
             for (var i = 0; i < initialCount; i++)
             {
                 var entity = itemsToShow[i];
@@ -500,6 +500,26 @@ internal static class ModListRefreshMixin
     private static bool IsCurrentRefreshGeneration(PageInstanceCompResource instance, int generation)
         => RefreshGenerations.TryGetValue(instance, out var box) && Volatile.Read(ref box.Value) == generation;
 
+    /// <summary>
+    /// 判断当前控件顺序是否已经是目标顺序的子序列。
+    /// 筛选切换（全部/已启用/已禁用/可更新）满足这个条件，可以避免逐个移动控件。
+    /// </summary>
+    private static bool IsSubsequence(
+        IReadOnlyList<MyLocalCompItem> existing,
+        IReadOnlyList<MyLocalCompItem> desired)
+    {
+        var desiredIndex = 0;
+        foreach (var item in existing)
+        {
+            while (desiredIndex < desired.Count && !ReferenceEquals(desired[desiredIndex], item))
+                desiredIndex++;
+            if (desiredIndex == desired.Count) return false;
+            desiredIndex++;
+        }
+
+        return true;
+    }
+
     [Overwrite("RefreshUI")]
     private static void RefreshUI([This] PageInstanceCompResource instance)
     {
@@ -556,15 +576,99 @@ internal static class ModListRefreshMixin
             panList.Visibility = Visibility.Visible;
 
             // 先移除不再显示的项；插入与首次格式化放到后续帧，避免几百项一次性阻塞。
-            var desiredItems = new HashSet<MyLocalCompItem>(desired.Select(pair => pair.Item));
+            var desiredItemList = desired.Select(pair => pair.Item).ToList();
+            var desiredItems = new HashSet<MyLocalCompItem>(desiredItemList);
             for (var i = panList.Children.Count - 1; i >= 0; i--)
                 if (panList.Children[i] is MyLocalCompItem item && !desiredItems.Contains(item))
                     panList.Children.RemoveAt(i);
 
-            var index = 0;
+            // 筛选切换通常只是子集/超集，原有条目的相对顺序不变。
+            // 这种情况只做删除/插入，不逐个 IndexOf 搬运控件。
+            var existingItems = panList.Children.OfType<MyLocalCompItem>().ToList();
+            var fastOrder = IsSubsequence(existingItems, desiredItemList);
+
+            void ApplyItem(ModLocalComp.LocalCompFile entry, MyLocalCompItem item, bool isDark)
+            {
+                item.Checked = instance.selectedMods.Contains(entry.RawPath);
+
+                var titleBlock = LabTitleField?.GetValue(item) as TextBlock;
+                var infoBlock = LabInfoField?.GetValue(item) as TextBlock;
+                if (titleBlock is null || infoBlock is null) return;
+
+                var snapshot = (isDark ? "D" : "L") + "\n" + titleBlock.Text + "\n" + infoBlock.Text;
+                var box = FormatSnapshots.GetOrCreateValue(item);
+                if (box.Value == snapshot) return;
+
+                SetColorfulTextLabMethod?.Invoke(null, [titleBlock.Text, titleBlock, isDark]);
+                SetColorfulTextLabMethod?.Invoke(null, [infoBlock.Text, infoBlock, isDark]);
+                box.Value = snapshot;
+            }
+
+            void ScheduleNext(Action next)
+            {
+                if (instance.Dispatcher.HasShutdownStarted) return;
+                instance.Dispatcher.BeginInvoke(DispatcherPriority.Background, next);
+            }
+
             const int batchSize = 16;
 
-            void ProcessBatch()
+            if (fastOrder)
+            {
+                var desiredIndex = 0;
+                var existingIndex = 0;
+                var insertAt = 0;
+
+                void ProcessFastBatch()
+                {
+                    if (!IsCurrentRefreshGeneration(instance, generation) ||
+                        instance.Dispatcher.HasShutdownStarted)
+                        return;
+
+                    ModAnimation.AniBeginControl();
+                    try
+                    {
+                        var end = Math.Min(desiredIndex + batchSize, desired.Count);
+                        var isDark = ThemeService.IsDarkMode;
+                        for (; desiredIndex < end; desiredIndex++)
+                        {
+                            var (entry, item) = desired[desiredIndex];
+                            if (existingIndex < existingItems.Count &&
+                                ReferenceEquals(existingItems[existingIndex], item))
+                            {
+                                existingIndex++;
+                            }
+                            else
+                            {
+                                if (item.Parent is Panel parent && !ReferenceEquals(parent, panList))
+                                    parent.Children.Remove(item);
+                                panList.Children.Insert(insertAt, item);
+                            }
+
+                            insertAt++;
+                            ApplyItem(entry, item, isDark);
+                        }
+                    }
+                    finally
+                    {
+                        ModAnimation.AniEndControl();
+                    }
+
+                    if (desiredIndex < desired.Count)
+                        ScheduleNext(ProcessFastBatch);
+                    else
+                        Finish();
+                }
+
+                if (instance.Dispatcher.CheckAccess())
+                    ProcessFastBatch();
+                else
+                    ScheduleNext(ProcessFastBatch);
+                return;
+            }
+
+            var index = 0;
+
+            void ProcessMoveBatch()
             {
                 if (!IsCurrentRefreshGeneration(instance, generation) ||
                     instance.Dispatcher.HasShutdownStarted)
@@ -588,19 +692,7 @@ internal static class ModListRefreshMixin
                             panList.Children.Insert(index, item);
                         }
 
-                        item.Checked = instance.selectedMods.Contains(entry.RawPath);
-
-                        var titleBlock = LabTitleField?.GetValue(item) as TextBlock;
-                        var infoBlock = LabInfoField?.GetValue(item) as TextBlock;
-                        if (titleBlock is null || infoBlock is null) continue;
-
-                        var snapshot = (isDark ? "D" : "L") + "\n" + titleBlock.Text + "\n" + infoBlock.Text;
-                        var box = FormatSnapshots.GetOrCreateValue(item);
-                        if (box.Value == snapshot) continue;
-
-                        SetColorfulTextLabMethod?.Invoke(null, [titleBlock.Text, titleBlock, isDark]);
-                        SetColorfulTextLabMethod?.Invoke(null, [infoBlock.Text, infoBlock, isDark]);
-                        box.Value = snapshot;
+                        ApplyItem(entry, item, isDark);
                     }
                 }
                 finally
@@ -609,15 +701,15 @@ internal static class ModListRefreshMixin
                 }
 
                 if (index < desired.Count)
-                    instance.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ProcessBatch));
+                    ScheduleNext(ProcessMoveBatch);
                 else
                     Finish();
             }
 
             if (instance.Dispatcher.CheckAccess())
-                ProcessBatch();
+                ProcessMoveBatch();
             else
-                instance.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ProcessBatch));
+                ScheduleNext(ProcessMoveBatch);
         }
         catch (Exception ex)
         {
