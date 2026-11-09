@@ -43,11 +43,23 @@ internal static class PinyinSearchMixin
                 .ToArray();
 
             var queryList = new List<ModBase.SearchEntry<ModLocalComp.LocalCompFile>>();
+            var nameAliasesByEntry = new Dictionary<ModLocalComp.LocalCompFile, string[]>();
+
             foreach (var entry in output.AsReadOnly())
             {
                 var searchSource = new List<ModBase.SearchSource>();
-                searchSource.Add(MakeSource(entry.Name, 1d, queryParts));
-                searchSource.Add(MakeSource(entry.FileName, 1d, queryParts));
+                var nameAliases = new List<string>();
+
+                void AddNameSource(string? text, double weight)
+                {
+                    var source = MakeSource(text, weight, queryParts);
+                    searchSource.Add(source);
+                    nameAliases.AddRange(source.aliases);
+                }
+
+                AddNameSource(entry.Name, 1d);
+                AddNameSource(entry.FileName, 1d);
+
                 if (entry.Version is not null)
                     searchSource.Add(new ModBase.SearchSource(entry.Version, 0.2d));
                 if (!string.IsNullOrEmpty(entry.Description))
@@ -56,9 +68,9 @@ internal static class PinyinSearchMixin
                 if (entry.Comp is not null)
                 {
                     if ((entry.Comp.RawName ?? "") != (entry.Name ?? ""))
-                        searchSource.Add(MakeSource(entry.Comp.RawName, 1d, queryParts));
+                        AddNameSource(entry.Comp.RawName, 1d);
                     if ((entry.Comp.TranslatedName ?? "") != (entry.Comp.RawName ?? ""))
-                        searchSource.Add(MakeSource(entry.Comp.TranslatedName, 1d, queryParts));
+                        AddNameSource(entry.Comp.TranslatedName, 1d);
                     var compDescription = entry.Comp.Description;
                     if (!string.IsNullOrEmpty(compDescription) &&
                         compDescription != (entry.Description ?? ""))
@@ -66,11 +78,19 @@ internal static class PinyinSearchMixin
                     searchSource.Add(new ModBase.SearchSource(string.Join("", entry.Comp.Tags), 0.2d));
                 }
 
+                nameAliasesByEntry[entry] = nameAliases.ToArray();
                 queryList.Add(new ModBase.SearchEntry<ModLocalComp.LocalCompFile>
                     { item = entry, searchSource = searchSource });
             }
 
-            return ModBase.Search(queryList, query, ModBase.MaxLocalSearchDepth, 0.35d)
+            var results = ModBase.Search(queryList, query, ModBase.MaxLocalSearchDepth, 0.35d);
+
+            // 模糊匹配可以宽松，但不允许查询里出现名称级字段中不存在的字符。
+            // 描述和标签只参与打分，不能为错字背书。
+            return results
+                .Where(result => result.absoluteRight ||
+                                 (nameAliasesByEntry.TryGetValue(result.item, out var aliases) &&
+                                  ContainsAllQueryChars(aliases, queryParts)))
                 .Select(result => result.item).ToList();
         }
         catch (Exception ex)
@@ -108,6 +128,45 @@ internal static class PinyinSearchMixin
     {
         if (!aliases.Contains(value, StringComparer.Ordinal))
             aliases.Add(value);
+    }
+
+    /// <summary>
+    /// 模糊结果必须满足：查询的每个词，其字符都能在某个名称级别名中找到，
+    /// 且重复字符的数量不能超过别名中的数量。允许跳字，不允许错字/缺字。
+    /// </summary>
+    private static bool ContainsAllQueryChars(
+        IReadOnlyList<string> aliases,
+        IReadOnlyList<string> queryParts)
+    {
+        foreach (var part in queryParts)
+        {
+            if (part.Length == 0) continue;
+            if (!aliases.Any(alias => AliasContainsAllChars(alias, part)))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool AliasContainsAllChars(string? alias, string queryPart)
+    {
+        if (string.IsNullOrEmpty(alias)) return false;
+
+        alias = alias.Replace(" ", "").ToLowerInvariant();
+        var needed = new Dictionary<char, int>();
+        foreach (var c in queryPart)
+            needed[c] = needed.GetValueOrDefault(c) + 1;
+
+        foreach (var pair in needed)
+        {
+            var count = 0;
+            foreach (var c in alias)
+                if (c == pair.Key)
+                    count++;
+            if (count < pair.Value) return false;
+        }
+
+        return true;
     }
 
     /// <summary>
