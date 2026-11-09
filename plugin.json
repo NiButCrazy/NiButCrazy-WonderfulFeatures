@@ -1,7 +1,7 @@
 {
   "id": "nibutcrazy.wonderful-features",
   "name": "NiButCrazy 奇妙特性",
-  "version": "2.1.0-dev",
+  "version": "2.1.0",
   "author": "NiButCrazy",
   "description": "以资源列表加载与切换性能优化、本地/离线模组支持为主，包含页面缓存、本地图标、重复项检测、离线皮肤与搜索增强。",
   "logo": "assets/icon.png",

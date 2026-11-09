@@ -18,17 +18,17 @@
   ],
   "versions": [
     {
-      "version": "2.0.2",
+      "version": "2.1.0",
       "pclCoreVersion": "2026.07.1",
       "downloads": {
         "windows": {
           "anycpu": {
-            "packageUrl": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/download/v2.0.2/nibutcrazy.wonderful-features-windows-anycpu.pclx",
-            "sha256": "58024c8605f876874f0175b75d8e036e2dbb6adc0299fa16068061b72bf75ee1"
+            "packageUrl": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/download/v2.1.0/nibutcrazy.wonderful-features-windows-anycpu.pclx",
+            "sha256": "334c291f009c756fc433abc68a957df8a958031337d1cd51f9c3993a58786914"
           }
         }
       },
-      "releaseNotes": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/tag/v2.0.2"
+      "releaseNotes": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/tag/v2.1.0"
     }
   ]
 }

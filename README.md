@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.0.2-blue.svg" alt="Version"></a>
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.0-blue.svg" alt="Version"></a>
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>2.0.2</b> · 开发中：<b>2.1.0-dev</b></p>
+<p align="center">当前版本：<b>2.1.0</b></p>
 
 ## 效果预览
 
@@ -57,7 +57,7 @@
 
 - **下载搜索词继承**：在本地 Mod/资源管理页输入搜索词后点击「下载新资源」，下载页会自动填入并搜索。
 - **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
-- **拼音搜索（2.1.0-dev）**：支持全拼、首字母和混合写法（如 `yyny`、`yingyongny`、`jixiedl`），只匹配连续子串，避免 `yyy` 这类跳字误匹配；内置 TinyPinyin。
+- **拼音搜索**：支持全拼、首字母和混合写法（如 `yyny`、`yingyongny`、`jixiedl`），只匹配连续子串，避免 `yyy` 这类跳字误匹配；内置 TinyPinyin。
 
 ### 离线皮肤与头像
 
