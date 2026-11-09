@@ -33,9 +33,6 @@ internal static class SearchCancellationFixMixin
     private static readonly FieldInfo? SearchBoxField = typeof(PageInstanceCompResource).GetField(
         "SearchBox", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-    private static readonly MethodInfo? GetSearchResultMethod = typeof(PageInstanceCompResource).GetMethod(
-        "GetSearchResult", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
     [Overwrite("SearchRun")]
     private static void SearchRun(
         [This] PageInstanceCompResource instance,
@@ -67,10 +64,9 @@ internal static class SearchCancellationFixMixin
                 if (instance.IsSearching)
                 {
                     var searchText = (SearchBoxField?.GetValue(instance) as MySearchBox)?.Text ?? string.Empty;
-                    var result = await Task.Run(
-                        () => GetSearchResultMethod?.Invoke(instance, [searchText]), token);
-                    if (result is not null)
-                        SearchResultField?.SetValue(instance, result);
+                    // 直接调用插件的搜索实现，避免依赖反射到被 Mixin 覆盖的方法。
+                    var result = await Task.Run(() => PinyinSearchMixin.Search(instance, searchText), token);
+                    SearchResultField?.SetValue(instance, result);
                 }
 
                 if (token.IsCancellationRequested) return;

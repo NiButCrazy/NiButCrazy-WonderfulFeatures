@@ -8,6 +8,7 @@
     "PCL.Plugin.NiButCrazy.Mixins.DownloadPageMixin",
     "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ChineseSearchMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.PinyinSearchMixin",
     "PCL.Plugin.NiButCrazy.Mixins.SearchCancellationFixMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ProfileTextFadeMixin",
     "PCL.Plugin.NiButCrazy.Mixins.ModListLoadMixin",

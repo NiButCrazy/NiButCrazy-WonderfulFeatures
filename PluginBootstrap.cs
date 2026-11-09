@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Windows.Media.Imaging;
@@ -126,6 +127,7 @@ internal static class PluginBootstrap
         try
         {
             _startupTicks = Environment.TickCount64;
+            EnsurePinyinDependency();
             var settings = PluginSettings.Current;
             MigrateLegacySkinDirectory();
             EnsureSkinReadme();
@@ -134,6 +136,29 @@ internal static class PluginBootstrap
         catch (Exception ex)
         {
             WriteLog("初始化失败：" + ex);
+        }
+    }
+
+    /// <summary>
+    /// 把 lib 目录里的 TinyPinyin 预加载到默认上下文，避免插件 ALC 在首次搜索时才解析依赖。
+    /// </summary>
+    private static void EnsurePinyinDependency()
+    {
+        try
+        {
+            if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly =>
+                    string.Equals(assembly.GetName().Name, "TinyPinyin", StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            var directory = Path.GetDirectoryName(typeof(PluginBootstrap).Assembly.Location);
+            if (string.IsNullOrEmpty(directory)) return;
+            var path = Path.Combine(directory, "TinyPinyin.dll");
+            if (!File.Exists(path)) return;
+            Assembly.LoadFrom(path);
+        }
+        catch (Exception ex)
+        {
+            WriteLog("加载拼音依赖失败：" + ex);
         }
     }
 

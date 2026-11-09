@@ -29,5 +29,9 @@
             <HintPath>$(PclBuildDir)\Microsoft.Data.Sqlite.dll</HintPath>
             <Private>false</Private>
         </Reference>
+        <Reference Include="TinyPinyin">
+            <HintPath>third_party\TinyPinyin\TinyPinyin.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
     </ItemGroup>
 </Project>

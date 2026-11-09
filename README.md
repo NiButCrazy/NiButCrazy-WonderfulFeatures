@@ -13,7 +13,7 @@
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>2.0.2</b></p>
+<p align="center">当前版本：<b>2.0.2</b> · 开发中：<b>2.1.0-dev</b></p>
 
 ## 效果预览
 
@@ -56,6 +56,7 @@
 
 - **下载搜索词继承**：在本地 Mod/资源管理页输入搜索词后点击「下载新资源」，下载页会自动填入并搜索。
 - **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
+- **拼音搜索（2.1.0-dev）**：支持全拼、首字母和混合写法（如 `yyny`、`yingyongny`、`jixiedl`），只匹配连续子串，避免 `yyy` 这类跳字误匹配；内置 TinyPinyin。
 
 ### 离线皮肤与头像
 
@@ -208,6 +209,7 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.BtnSortClick` | Inject HEAD | 标记用户选择排序 |
 | `PageInstanceCompResource.SetSortMethod` | Inject TAIL | 保存/恢复排序 |
 | `PageInstanceCompResource.SearchRun` | Overwrite | 修复 CTS 释放竞态 |
+| `PageInstanceCompResource.GetSearchResult` | Overwrite | 本地 Mod 拼音搜索（全拼 / 首字母 / 混合，连续匹配） |
 | `PageInstanceCompResource.LoadUIFromLoaderOutput` | Overwrite | 分批创建 Mod 控件，首批 13 个同步显示，其余分帧；忽略其它资源类型的完成事件 |
 | `PageInstanceCompResource.ReloadCompFileList` | Inject HEAD | 目录指纹未变化时复用页面已有列表 |
 | `PageInstanceCompResource.RefreshUI` | Overwrite | 增量刷新、子序列快速路径、分帧插入与格式化 |

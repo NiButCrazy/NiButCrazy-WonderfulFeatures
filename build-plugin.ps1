@@ -38,6 +38,16 @@ if (Test-Path -LiteralPath $deps) {
     Copy-Item -LiteralPath $deps -Destination (Join-Path $dist 'lib')
 }
 
+# 拼音搜索依赖；插件加载器会从 lib 目录解析。
+$tinyPinyin = Join-Path $root "bin\$Configuration\TinyPinyin.dll"
+if (Test-Path -LiteralPath $tinyPinyin) {
+    Copy-Item -LiteralPath $tinyPinyin -Destination (Join-Path $dist 'lib')
+}
+$tinyLicense = Join-Path $root 'third_party\TinyPinyin\LICENSE'
+if (Test-Path -LiteralPath $tinyLicense) {
+    Copy-Item -LiteralPath $tinyLicense -Destination (Join-Path $dist 'TinyPinyin-LICENSE.txt')
+}
+
 $icon = Join-Path $root 'assets\icon.png'
 if (Test-Path -LiteralPath $icon) {
     $iconDirectory = Join-Path $dist 'assets'
