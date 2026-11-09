@@ -1,21 +1,61 @@
-# NiButCrazy 奇妙特性
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="NiButCrazy 奇妙特性 Logo">
+</p>
 
-PCL Nex 的 Mixin 插件，以资源列表加载与切换性能优化、本地/离线模组支持为主，同时补全离线皮肤、中文搜索等启动器功能。
+<h1 align="center">NiButCrazy 奇妙特性</h1>
 
-当前版本：**2.0.2**
+<p align="center">
+  <em>PCL Nex 的 Mixin 插件：资源列表性能优化、本地 / 离线模组支持、离线皮肤与搜索增强。</em>
+</p>
 
-## 功能
+<p align="center">
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.0.2-blue.svg" alt="Version"></a>
+  <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
+</p>
 
-### 资源管理体验
+<p align="center">当前版本：<b>2.0.2</b></p>
 
-- **下载搜索词继承**：在本地 Mod/资源管理页输入搜索词后点击「下载新资源」，下载页会自动填入并搜索。
-- **排序记忆**：在 Mod 管理页选择排序方式后自动保存，重新加载、切换实例或首次进入时恢复。
-- **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
-- **Mod 列表加载优化**：首批 16 个同步显示，剩余项分批创建；筛选 Tab 切换采用增量更新和分帧刷新；加载期间筛选和排序显示「统计中 / 排序：排序中」，避免空白列表或错误计数。
+## 效果预览
+
+模组列表加载与筛选切换效果对比：
+
+<table align="center">
+  <tr>
+    <td align="center"><b>优化前</b><br/><img src="assets/before.webp" width="400" alt="优化前"></td>
+    <td align="center"><b>优化后</b><br/><img src="assets/after.webp" width="400" alt="优化后"></td>
+  </tr>
+</table>
+
+## 目录
+
+- [效果预览](#效果预览)
+- [功能特性](#功能特性)
+- [安装](#安装)
+- [自定义离线皮肤](#自定义离线皮肤)
+- [配置](#配置)
+- [构建](#构建)
+- [开发说明](#开发说明)
+- [市场发布](#市场发布)
+
+## 功能特性
+
+### 资源列表
+
+- **加载与分帧**：首批 13 个同步显示，剩余项分帧创建；加载期间筛选和排序显示「统计中 / 排序：排序中」，避免空白列表和错误计数。
 - **页面切换缓存**：在模组、资源包、光影包、投影原理图之间切换时，如果目录内容没有变化，直接复用上一次的列表，不再重新扫描并弹出加载动画；下载、启禁用、手动刷新等操作仍会强制重载。
+- **筛选切换优化**：全部 / 已启用 / 已禁用 / 可更新这类顺序不变的切换只处理差异项，排序真正改变时才走重排逻辑。
+- **排序记忆**：在 Mod 管理页选择排序方式后自动保存，重新加载、切换实例或首次进入时恢复。
 - **搜索取消异常修复**：不再反复输出 `CancellationTokenSource has been disposed` 日志。
+
+### 本地与离线模组
+
 - **本地重复 Mod 检测**：「重复」筛选不再只依赖联网匹配到的资源项目，还会按 jar 内解析出的 `modId` 分组，未收录或联网失败的本地 Mod（如两份不同版本的同一个 Mod）也能被发现。
 - **本地 Mod 图标**：读取 Forge / NeoForge 的 `mods.toml` / `neoforge.mods.toml` 中的 `logoFile`，后台提取并缓存；在线图标仍然优先。兼容 `[[mods]] #mandatory` 这类带行内注释的段头。
+
+### 搜索与下载
+
+- **下载搜索词继承**：在本地 Mod/资源管理页输入搜索词后点击「下载新资源」，下载页会自动填入并搜索。
+- **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
 
 ### 离线皮肤与头像
 
@@ -154,7 +194,7 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 
 ## 开发说明
 
-插件通过 `PCL.Mixin` 修改以下方法：
+### Mixin 列表
 
 | 目标 | 方式 | 作用 |
 | --- | --- | --- |
@@ -168,13 +208,14 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.BtnSortClick` | Inject HEAD | 标记用户选择排序 |
 | `PageInstanceCompResource.SetSortMethod` | Inject TAIL | 保存/恢复排序 |
 | `PageInstanceCompResource.SearchRun` | Overwrite | 修复 CTS 释放竞态 |
-| `PageInstanceCompResource.LoadUIFromLoaderOutput` | Overwrite | 分批创建 Mod 控件并保持加载动画；忽略其它资源类型的完成事件 |
+| `PageInstanceCompResource.LoadUIFromLoaderOutput` | Overwrite | 分批创建 Mod 控件，首批 13 个同步显示，其余分帧；忽略其它资源类型的完成事件 |
 | `PageInstanceCompResource.ReloadCompFileList` | Inject HEAD | 目录指纹未变化时复用页面已有列表 |
-| `PageInstanceCompResource.RefreshUI` | Overwrite | 增量刷新、分帧插入与格式化 |
-| `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新 |
+| `PageInstanceCompResource.RefreshUI` | Overwrite | 增量刷新、子序列快速路径、分帧插入与格式化 |
+| `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新；异步统计结束后校正本地重复项计数与按钮可见性 |
 | `PageInstanceCompResource.CanPassFilter` | Inject HEAD | 「重复」筛选补充基于本地 `modId` 的检测 |
-| `PageInstanceCompResource.RefreshBars` | Inject HEAD | 校正本地重复项计数与「重复」按钮可见性 |
 | `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
+
+### 兼容性
 
 PCL Nex 更新后如果这些方法签名变化，插件会加载失败并被启动器自动禁用，`plugin.log` 中会记录原因。
 
