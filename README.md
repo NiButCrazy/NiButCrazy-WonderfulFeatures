@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.0-blue.svg" alt="Version"></a>
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.1-blue.svg" alt="Version"></a>
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>2.1.0</b> · 开发中：<b>2.1.1-dev</b></p>
+<p align="center">当前版本：<b>2.1.1</b></p>
 
 ## 效果预览
 
@@ -70,7 +70,7 @@
 
 ## 本地搜索规则
 
-> 错字过滤规则从 `2.1.1-dev` 开始生效。
+> 错字过滤规则从 `2.1.1` 开始生效。
 
 ### 搜索源与权重
 
@@ -96,7 +96,7 @@
 
 - 保留 PCL 原有的模糊匹配：允许跳字、缩写和片段匹配，不要求连续；
 - 连续子串命中优先展示；
-- `2.1.1-dev` 起增加错字过滤：模糊结果中，查询的每个词必须能在**名称级字段**（名称、文件名、原始名、译名及其拼音别名）中找到全部字符，且重复字符的数量不能超过别名中的数量；
+- `2.1.1` 起增加错字过滤：模糊结果中，查询的每个词必须能在**名称级字段**（名称、文件名、原始名、译名及其拼音别名）中找到全部字符，且重复字符的数量不能超过别名中的数量；
 - 描述和标签只参与相似度打分，不能为错字提供依据。
 
 示例：
