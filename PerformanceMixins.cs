@@ -186,6 +186,7 @@ internal static class ModListLoadMixin
 
         try
         {
+            HideScrollBarUntilLoaded(instance);
             // loader 在列表控件创建完成之前就会报告 Finished，
             // 手动保持加载动画，避免 UI 还在忙时加载条先消失。
             SetLoadingState(instance, MyLoading.MyLoadingState.Run);
@@ -199,6 +200,7 @@ internal static class ModListLoadMixin
                 SetLoadingInProgress(instance, false);
                 ShowEmptyState(instance);
                 LocalListCacheMixin.MarkLoaded(instance);
+                RevealScrollBarIfPending(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
                 return;
             }
@@ -318,11 +320,46 @@ internal static class ModListLoadMixin
         catch (Exception ex)
         {
             LocalListCacheMixin.Invalidate(instance);
+            RevealScrollBarIfPending(instance);
             SetBatchLoading(instance, false);
             SetLoadingInProgress(instance, false);
             SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
             PluginBootstrap.WriteLog("分批加载 Mod 列表失败：" + ex);
             ModBase.Log(ex, "加载 Mod 列表 UI 失败", ModBase.LogLevel.Feedback);
+        }
+    }
+
+    private static readonly ConditionalWeakTable<PageInstanceCompResource, StrongBox<bool>> PendingScrollReveal = new();
+
+    /// <summary>
+    /// 列表加载期间隐藏滚动条，避免分批插入时滚动条长度/位置不断变化造成卡顿。
+    /// </summary>
+    internal static void HideScrollBarUntilLoaded(PageInstanceCompResource instance)
+    {
+        try
+        {
+            if (PanBackField?.GetValue(instance) is ScrollViewer viewer)
+                viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden;
+            PendingScrollReveal.GetOrCreateValue(instance).Value = true;
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("隐藏加载滚动条失败：" + ex);
+        }
+    }
+
+    internal static void RevealScrollBarIfPending(PageInstanceCompResource instance)
+    {
+        try
+        {
+            if (!PendingScrollReveal.TryGetValue(instance, out var pending) || !pending.Value) return;
+            pending.Value = false;
+            if (PanBackField?.GetValue(instance) is ScrollViewer viewer)
+                viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("恢复加载滚动条失败：" + ex);
         }
     }
 
@@ -555,6 +592,8 @@ internal static class ModListRefreshMixin
             void Finish()
             {
                 if (!IsCurrentRefreshGeneration(instance, generation)) return;
+                if (!ModListLoadMixin.IsLoadingInProgress(instance))
+                    ModListLoadMixin.RevealScrollBarIfPending(instance);
 
                 var showingPaths = new HashSet<string>(
                     showingMods.Select(entry => entry.RawPath ?? string.Empty), StringComparer.Ordinal);
