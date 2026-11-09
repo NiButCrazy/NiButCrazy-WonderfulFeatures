@@ -5,7 +5,7 @@
     "githubLogin": "NiButCrazy",
     "displayName": "NiButCrazy"
   },
-  "description": "以资源列表加载与切换性能优化、本地/离线模组支持为主，包含页面缓存、本地图标、重复项检测、离线皮肤与搜索增强。",
+  "description": "以模组列表加载性能优化为主，其余特性包含拼音模糊搜索 + 增强、本地/离线模组读取图标、重复项优化检测、页面缓存、离线皮肤等奇妙特性。",
   "readmeUrl": "README.md",
   "repository": "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures",
   "logo": "assets/icon.png?v=fbc97a1e",
