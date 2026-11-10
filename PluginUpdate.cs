@@ -84,7 +84,11 @@ internal static class PluginUpdate
             if (string.Equals(last, current, StringComparison.Ordinal))
                 return;
 
+            // 先记录版本，保证关闭弹窗期间升级后不会在以后补弹旧内容。
             File.WriteAllText(statePath, current);
+
+            if (!PluginSettings.Current.IsFeatureEnabled("updateNotes"))
+                return;
 
             var notes = LoadChangelog(current);
             if (notes.Count == 0)
@@ -106,6 +110,9 @@ internal static class PluginUpdate
 
     private static async Task CheckForUpdatesAsync(bool manual = false)
     {
+        if (!manual && !PluginSettings.Current.IsFeatureEnabled("updateCheck"))
+            return;
+
         try
         {
             var json = await Http.GetStringAsync(ManifestUrl).ConfigureAwait(false);

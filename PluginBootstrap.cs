@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -25,6 +26,14 @@ internal sealed class PluginSettings
     /// 资源管理页记住的排序方式，1 = 资源名（PCL 默认）。
     /// </summary>
     public int CompSortMethod { get; set; } = 1;
+
+    /// <summary>
+    /// 功能开关。键为 FeatureCatalog 中的功能 ID；缺失时视为启用。
+    /// </summary>
+    public Dictionary<string, bool> EnabledFeatures { get; set; } = new();
+
+    public bool IsFeatureEnabled(string key)
+        => !EnabledFeatures.TryGetValue(key, out var enabled) || enabled;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -102,6 +111,24 @@ internal sealed class PluginSettings
 public sealed class NiButCrazyConfigPlugin : IMixinConfigPlugin
 {
     private static int _initialized;
+
+    /// <summary>
+    /// 在应用每个 Mixin 前读取功能开关。返回 false 的 Mixin 会被整体跳过，
+    /// 原版逻辑保留；工具页设置 Mixin 不在功能列表中，始终启用。
+    /// </summary>
+    public bool ShouldApplyMixin(string targetTypeName, string mixinTypeName)
+    {
+        try
+        {
+            var feature = FeatureCatalog.GetFeatureKey(mixinTypeName);
+            return feature is null || PluginSettings.Current.IsFeatureEnabled(feature);
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("读取功能开关失败，默认启用：" + ex);
+            return true;
+        }
+    }
 
     public void PreApply(MixinApplyContext context)
     {

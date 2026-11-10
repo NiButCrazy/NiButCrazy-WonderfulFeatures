@@ -291,10 +291,73 @@ internal static class ProfileTextFadeMixin
                 saveItem.Visibility = isLegacy ? Visibility.Collapsed : Visibility.Visible;
             if (button.ContextMenu.Items.Count > 3 && button.ContextMenu.Items[3] is MyMenuItem capeItem)
                 capeItem.Visibility = isLegacy ? Visibility.Collapsed : Visibility.Visible;
+
+            // 离线档案额外提供删除自定义头像。
+            var deleteItem = EnsureDeleteMenuItem(button.ContextMenu);
+            deleteItem.Visibility = isLegacy ? Visibility.Visible : Visibility.Collapsed;
         }
         catch (Exception ex)
         {
             PluginBootstrap.WriteLog("更新档案菜单文字失败：" + ex);
+        }
+    }
+
+    private static MyMenuItem EnsureDeleteMenuItem(ContextMenu menu)
+    {
+        foreach (var item in menu.Items)
+            if (item is MyMenuItem existing && existing.Tag as string == "NbcDeleteAvatar")
+                return existing;
+
+        var deleteItem = new MyMenuItem
+        {
+            Header = "删除头像",
+            Tag = "NbcDeleteAvatar"
+        };
+        deleteItem.Click += (_, _) => DeleteAvatar();
+        menu.Items.Add(deleteItem);
+        return deleteItem;
+    }
+
+    private static void DeleteAvatar()
+    {
+        try
+        {
+            var profile = ModProfile.selectedProfile;
+            if (profile is null || profile.Type != ModLaunch.McLoginType.Legacy)
+                return;
+
+            var path = OfflineSkinMixin.FindCustomSkin(profile.Username, profile.Uuid);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                HintService.Hint("当前档案没有自定义头像", HintType.Info);
+                return;
+            }
+
+            if (ModMain.MyMsgBox(
+                    $"确定删除头像文件吗？\n{Path.GetFileName(path)}",
+                    "删除头像",
+                    "删除",
+                    "取消") != 1)
+                return;
+
+            ModBase.RunInThread(() =>
+            {
+                try
+                {
+                    File.Delete(path);
+                    PageLaunchLeft.skinLegacy.WaitForExit(isForceRestart: true);
+                    ModBase.RunInUi(() => HintService.Hint("头像已删除", HintType.Success));
+                }
+                catch (Exception ex)
+                {
+                    PluginBootstrap.WriteLog("删除头像失败：" + ex);
+                    ModBase.RunInUi(() => HintService.Hint("删除头像失败", HintType.Error));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("删除头像失败：" + ex);
         }
     }
 }

@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.2--dev-blue.svg" alt="Version"></a>
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-3.0.0-blue.svg" alt="Version"></a>
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>2.1.2-dev</b></p>
+<p align="center">当前版本：<b>3.0.0</b></p>
 
 ## 效果预览
 
@@ -66,16 +66,17 @@
 ### 工具页设置
 
 - **奇妙特性入口**：在「工具 → 奇妙小工具」分类下、百宝箱之后新增「奇妙特性」入口，点击打开独立设置页。
-- **排序偏好**：直接设置资源管理的默认排序方式，修改后立即保存。
-- **头像预览**：显示当前离线档案的头像和皮肤文件位置；换肤后再次进入页面会自动刷新。
+- **排序记忆**：直接设置资源管理的默认排序方式，修改后立即保存。
+- **头像预览**：显示当前离线档案的头像和皮肤文件名；自定义皮肤支持悬停查看地址、点击复制，换肤后再次进入页面自动刷新。
+- **更新选项**：可分别关闭「启动时检查更新」和「更新后显示更新内容弹窗」。
+- **功能开关**：按功能组开启或关闭插件 Mixin（离线皮肤与头像、列表优化、本地 Mod、搜索增强、下载搜索词、排序记忆），重启生效。
 - **插件信息**：显示当前版本、PCL Core 版本和 Mixin 数量。
-- **更新提示**：版本更新后首次启动弹窗展示更新内容；启动时检查插件市场，有新版本时弹 Toast。
 - **快捷按钮**：牢大生存指南（打开 GitHub 自述文件）、检查更新、打开插件数据目录。
 
 ### 离线皮肤与头像
 
 - **离线皮肤**：支持本地自定义皮肤；没有自定义皮肤时沿用 PCL 原版的 Steve / Alex 选择。
-- **离线换头像**：离线档案的「皮肤与披风 → 修改头像」可以直接选择本地 PNG，不再提示「当前档案不支持修改皮肤！」；离线档案会隐藏「保存皮肤」与「修改披风」。
+- **离线换头像**：离线档案的「皮肤与披风 → 修改头像」可以直接选择本地 PNG，不再提示「当前档案不支持修改皮肤！」；离线档案会隐藏「保存皮肤」与「修改披风」，并提供「删除头像」恢复默认皮肤。
 - **只读头像逻辑**：重写 `MySkin.Load`，只读取皮肤文件并截取头部区域，绝不写回来源皮肤文件。
 - **头像过渡**：头像淡入（360ms），帽子层延迟 60ms；昵称和账号类型同步淡入。
 - **启动优化**：启动阶段复用人像缓存并延迟皮肤处理，避免和窗口入场动画抢 UI 线程。

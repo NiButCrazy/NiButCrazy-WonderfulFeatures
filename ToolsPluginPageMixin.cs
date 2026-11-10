@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Mixin;
@@ -117,6 +118,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     private Image _skinImage = null!;
     private TextBlock _skinStatusText = null!;
     private TextBlock _skinPathText = null!;
+    private string? _skinAddress;
     private bool _suppress;
 
     public ToolsPluginSettingsPage()
@@ -132,6 +134,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         PanScroll = scroll;
 
         panel.Children.Add(BuildCard());
+        panel.Children.Add(BuildFeaturesCard());
 
         // 页面实例会被缓存，每次进入时同步一次控件值（例如资源页改过排序）。
         PageEnter += RefreshValues;
@@ -159,11 +162,11 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         {
             Width = new GridLength(1, GridUnitType.Star)
         });
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < 6; i++)
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        // 行 0：排序偏好
-        AddLabel(grid, 0, "排序偏好");
+        // 行 1：排序记忆
+        AddLabel(grid, 1, "排序记忆");
         _sortBox = new MyComboBox
         {
             Width = 180,
@@ -175,7 +178,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         foreach (var name in SortNames)
             _sortBox.Items.Add(new MyComboBoxItem { Content = name });
         _sortBox.SelectedIndex = NormalizeSortIndex(settings.CompSortMethod);
-        Place(grid, _sortBox, 0, 1);
+        Place(grid, _sortBox, 1, 1);
         // 初值在挂事件前设置，刷新时用 Suppress 屏蔽，值未变化也不写盘。
         _sortBox.SelectionChanged += (_, _) =>
         {
@@ -188,15 +191,19 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             PluginSettings.Save();
         };
 
-        // 行 1：当前离线档案的头像预览与文件位置
-        AddLabel(grid, 1, "头像预览");
-        Place(grid, BuildSkinPreview(), 1, 1);
+        // 行 0：当前离线档案的头像预览与文件位置
+        AddLabel(grid, 0, "头像预览");
+        Place(grid, BuildSkinPreview(), 0, 1);
 
-        // 行 2-4：插件信息
+        // 行 2：更新选项
+        AddLabel(grid, 2, "更新选项");
+        Place(grid, BuildUpdateOptionsRow(), 2, 1);
+
+        // 行 3-5：插件信息
         var info = ReadPluginInfo();
-        AddInfo(grid, 2, "版本", info.Version);
-        AddInfo(grid, 3, "PCL Core 版本", info.CoreVersion);
-        AddInfo(grid, 4, "Mixin 数量", info.MixinCount);
+        AddInfo(grid, 3, "版本", info.Version);
+        AddInfo(grid, 4, "PCL Core 版本", info.CoreVersion);
+        AddInfo(grid, 5, "Mixin 数量", info.MixinCount);
 
         root.Children.Add(grid);
 
@@ -254,6 +261,96 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         return card;
     }
 
+    private FrameworkElement BuildUpdateOptionsRow()
+    {
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var checkUpdate = new MyCheckBox
+        {
+            Text = "检查更新",
+            Checked = PluginSettings.Current.IsFeatureEnabled("updateCheck"),
+            Height = 22,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 16, 0)
+        };
+        checkUpdate.Change += (_, user) =>
+        {
+            if (!user) return;
+            var settings = PluginSettings.Current;
+            settings.EnabledFeatures["updateCheck"] = checkUpdate.Checked == true;
+            PluginSettings.Save();
+        };
+        panel.Children.Add(checkUpdate);
+
+        var checkNotes = new MyCheckBox
+        {
+            Text = "显示更新内容弹窗",
+            Checked = PluginSettings.Current.IsFeatureEnabled("updateNotes"),
+            Height = 22,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 16, 0)
+        };
+        checkNotes.Change += (_, user) =>
+        {
+            if (!user) return;
+            var settings = PluginSettings.Current;
+            settings.EnabledFeatures["updateNotes"] = checkNotes.Checked == true;
+            PluginSettings.Save();
+        };
+        panel.Children.Add(checkNotes);
+
+        return panel;
+    }
+
+    private MyCard BuildFeaturesCard()
+    {
+        var card = new MyCard
+        {
+            Title = "功能开关",
+            Margin = new Thickness(0, 0, 0, 15),
+            UseAnimation = false
+        };
+
+        var root = new StackPanel { Margin = new Thickness(25, 40, 25, 20) };
+        var hint = new TextBlock
+        {
+            Text = "重启生效",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        hint.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrushGray4");
+        root.Children.Add(hint);
+
+        foreach (var feature in FeatureCatalog.Features)
+        {
+            var check = new MyCheckBox
+            {
+                Text = feature.Name,
+                Checked = PluginSettings.Current.IsFeatureEnabled(feature.Key),
+                Height = 22,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            var key = feature.Key;
+            check.Change += (_, user) =>
+            {
+                if (!user) return;
+                var settings = PluginSettings.Current;
+                settings.EnabledFeatures[key] = check.Checked == true;
+                PluginSettings.Save();
+            };
+            root.Children.Add(check);
+        }
+
+        card.Children.Add(root);
+        return card;
+    }
+
     private Grid BuildSkinPreview()
     {
         var container = new Grid();
@@ -272,6 +369,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             Margin = new Thickness(0, 0, 12, 10)
         };
         RenderOptions.SetBitmapScalingMode(_skinImage, BitmapScalingMode.NearestNeighbor);
+        _skinImage.MouseLeftButtonUp += (_, _) => CopySkinAddress();
         container.Children.Add(_skinImage);
 
         _skinStatusText = new TextBlock { Text = string.Empty, Margin = new Thickness(0, 0, 0, 4) };
@@ -335,7 +433,11 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             var isCustom = !address.StartsWith(ModBase.pathImage, StringComparison.Ordinal);
             if (isCustom)
             {
-                ShowSkinPreview(BuildHead(address), "自定义皮肤", address, address);
+                ShowSkinPreview(
+                    BuildHead(address),
+                    "自定义皮肤",
+                    Path.GetFileNameWithoutExtension(address),
+                    address);
                 return;
             }
 
@@ -343,8 +445,8 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             ShowSkinPreview(
                 BuildHead(address),
                 "未选择自定义皮肤，使用默认皮肤",
-                "PCL 内置文件：Skins/" + fileName,
-                address);
+                Path.GetFileNameWithoutExtension(fileName),
+                null);
         }
         catch (Exception ex)
         {
@@ -358,10 +460,26 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
 
     private void ShowSkinPreview(MyBitmap? head, string status, string path, string? toolTip)
     {
+        _skinAddress = toolTip;
         _skinImage.Source = head;
+        _skinImage.ToolTip = toolTip;
+        _skinImage.Cursor = toolTip is null ? Cursors.Arrow : Cursors.Hand;
         _skinStatusText.Text = status;
         _skinPathText.Text = path;
-        _skinPathText.ToolTip = toolTip;
+    }
+
+    private void CopySkinAddress()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_skinAddress)) return;
+            Clipboard.SetText(_skinAddress);
+            HintService.Hint("皮肤地址已复制", HintType.Success);
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("复制头像地址失败：" + ex);
+        }
     }
 
     private static MyBitmap? BuildHead(string address)

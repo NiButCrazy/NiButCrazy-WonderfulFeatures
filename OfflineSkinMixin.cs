@@ -58,7 +58,7 @@ internal static class OfflineSkinMixin
         return ModBase.pathImage + "Skins/" + ModSkin.McSkinSex(uuid) + ".png";
     }
 
-    private static string? FindCustomSkin(string username, string uuid)
+    internal static string? FindCustomSkin(string username, string uuid)
     {
         var directory = PluginSettings.SkinDirectory;
         foreach (var candidate in new[] { username, uuid, "default" })
