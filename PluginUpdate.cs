@@ -19,11 +19,31 @@ namespace PCL.Plugin.NiButCrazy;
 /// </summary>
 internal static class PluginUpdate
 {
-    private const string ManifestUrl =
+    internal const string ManifestUrl =
         "https://raw.githubusercontent.com/NiButCrazy/NiButCrazy-WonderfulFeatures/main/manifest.json";
 
     internal const string ReadmeUrl =
         "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/blob/main/README.md";
+
+    internal const string RemoteChangelogUrl =
+        "https://raw.githubusercontent.com/NiButCrazy/NiButCrazy-WonderfulFeatures/main/changelog.json";
+
+    internal const string LatestReleaseUrl =
+        "https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases/latest";
+
+    /// <summary>
+    /// 检测到的新版本号；为空表示已是最新或尚未检测。
+    /// </summary>
+    internal static string? AvailableVersion { get; private set; }
+
+    internal static event Action? AvailableVersionChanged;
+
+    private static void SetAvailableVersion(string? version)
+    {
+        if (string.Equals(AvailableVersion, version, StringComparison.Ordinal)) return;
+        AvailableVersion = version;
+        ModBase.RunInUi(() => AvailableVersionChanged?.Invoke());
+    }
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
 
@@ -97,9 +117,7 @@ internal static class PluginUpdate
                 return;
             }
 
-            var text = string.Join("\n",
-                notes.Select(note => note.StartsWith("【", StringComparison.Ordinal) ? note : "· " + note));
-            ModMain.MyMsgBox(text, $"NiButCrazy 奇妙特性 {current} 更新内容");
+            ModMain.MyMsgBox(FormatNotes(notes), $"NiButCrazy 奇妙特性 {current} 更新内容");
         }
         catch (Exception ex)
         {
@@ -147,15 +165,20 @@ internal static class PluginUpdate
                 return;
             if (latest <= current)
             {
+                SetAvailableVersion(null);
                 if (manual)
                     ModBase.RunInUi(() => HintService.Hint(
                         "NiButCrazy 奇妙特性已是最新版本", HintType.Success));
                 return;
             }
 
-            ModBase.RunInUi(() => HintService.Hint(
-                $"NiButCrazy 奇妙特性 {latestText} 可用，可在插件市场更新",
-                HintType.Info));
+            ModBase.RunInUi(() =>
+            {
+                HintService.Hint(
+                    $"NiButCrazy 奇妙特性 {latestText} 可用，可在插件设置界面更新",
+                    HintType.Info);
+                SetAvailableVersion(latestText);
+            });
         }
         catch (Exception ex)
         {
@@ -168,33 +191,21 @@ internal static class PluginUpdate
     }
 
     private static List<string> LoadChangelog(string version)
+        => LoadChangelogFromDirectory(Path.Combine(Paths.Plugins, PluginConstants.Id), version);
+
+    internal static List<string> LoadChangelogFromDirectory(string directory, string version)
     {
         var result = new List<string>();
         try
         {
-            var path = Path.Combine(Paths.Plugins, PluginConstants.Id, "changelog.json");
+            var path = Path.Combine(directory, "changelog.json");
             if (!File.Exists(path)) return result;
 
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             if (!doc.RootElement.TryGetProperty(version, out var notes))
                 return result;
 
-            if (notes.ValueKind == JsonValueKind.Array)
-            {
-                AddNotes(notes, result);
-            }
-            else if (notes.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var section in notes.EnumerateObject())
-                {
-                    if (section.Value.ValueKind != JsonValueKind.Array) continue;
-                    var items = new List<string>();
-                    AddNotes(section.Value, items);
-                    if (items.Count == 0) continue;
-                    result.Add($"【{section.Name}】");
-                    result.AddRange(items);
-                }
-            }
+            ParseNotes(notes, result);
         }
         catch (Exception ex)
         {
@@ -203,6 +214,56 @@ internal static class PluginUpdate
 
         return result;
     }
+
+    /// <summary>
+    /// 从远程仓库读取新版本的更新内容，用于安装前展示。
+    /// </summary>
+    internal static async Task<List<string>> FetchRemoteChangelogAsync(string? version)
+    {
+        var result = new List<string>();
+        try
+        {
+            var normalized = NormalizeVersion(version ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(normalized)) return result;
+
+            var json = await Http.GetStringAsync(RemoteChangelogUrl).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty(normalized, out var notes))
+                return result;
+
+            ParseNotes(notes, result);
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("读取远程更新内容失败：" + ex.Message);
+        }
+
+        return result;
+    }
+
+    private static void ParseNotes(JsonElement notes, List<string> result)
+    {
+        if (notes.ValueKind == JsonValueKind.Array)
+        {
+            AddNotes(notes, result);
+        }
+        else if (notes.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var section in notes.EnumerateObject())
+            {
+                if (section.Value.ValueKind != JsonValueKind.Array) continue;
+                var items = new List<string>();
+                AddNotes(section.Value, items);
+                if (items.Count == 0) continue;
+                result.Add($"【{section.Name}】");
+                result.AddRange(items);
+            }
+        }
+    }
+
+    internal static string FormatNotes(IReadOnlyList<string> notes)
+        => string.Join("\n",
+            notes.Select(note => note.StartsWith("【", StringComparison.Ordinal) ? note : "· " + note));
 
     private static void AddNotes(JsonElement array, List<string> result)
     {
@@ -233,7 +294,7 @@ internal static class PluginUpdate
         return "0.0.0";
     }
 
-    private static string NormalizeVersion(string version)
+    internal static string NormalizeVersion(string version)
     {
         var dash = version.IndexOf('-');
         return dash >= 0 ? version[..dash] : version;

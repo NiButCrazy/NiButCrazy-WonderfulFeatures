@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,6 +9,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using PCL.Core.App;
+using PCL.Core.App.Localization;
+using PCL.Core.App.Plugins;
 using PCL.Mixin;
 
 namespace PCL.Plugin.NiButCrazy.Mixins;
@@ -118,6 +121,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     private TextBlock _skinStatusText = null!;
     private TextBlock _skinPathText = null!;
     private string? _skinAddress;
+    private MyButton? _updateAvailableButton;
     private bool _restartButtonShown;
     private bool _suppress;
 
@@ -138,6 +142,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
 
         // 页面实例会被缓存，每次进入时同步一次控件值（例如资源页改过排序）。
         PageEnter += RefreshValues;
+        PluginUpdate.AvailableVersionChanged += RefreshUpdateButton;
     }
 
     private MyCard BuildCard()
@@ -213,6 +218,18 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             Margin = new Thickness(0, 8, 0, 0)
         };
 
+        _updateAvailableButton = new MyButton
+        {
+            Text = "更新",
+            Width = 140,
+            Height = 35,
+            ColorType = MyButton.ColorState.Highlight,
+            Margin = new Thickness(0, 0, 10, 0),
+            Visibility = Visibility.Collapsed
+        };
+        _updateAvailableButton.Click += (_, _) => UpdateFromRemoteManifest();
+        buttonPanel.Children.Add(_updateAvailableButton);
+
         var updateButton = new MyButton
         {
             Text = "检查更新",
@@ -284,7 +301,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             var settings = PluginSettings.Current;
             settings.EnabledFeatures["updateCheck"] = checkUpdate.Checked == true;
             PluginSettings.Save();
-            ShowPclRestartButton();
+            SyncRestartButton();
         };
         panel.Children.Add(checkUpdate);
 
@@ -302,7 +319,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             var settings = PluginSettings.Current;
             settings.EnabledFeatures["updateNotes"] = checkNotes.Checked == true;
             PluginSettings.Save();
-            ShowPclRestartButton();
+            SyncRestartButton();
         };
         panel.Children.Add(checkNotes);
 
@@ -337,7 +354,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
                 var settings = PluginSettings.Current;
                 settings.EnabledFeatures[key] = check.Checked == true;
                 PluginSettings.Save();
-                ShowPclRestartButton();
+                SyncRestartButton();
             };
             root.Children.Add(check);
         }
@@ -350,25 +367,129 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     /// 复用 PCL 顶部的重启按钮。功能开关不会改变插件启用状态，
     /// 因此 HasPendingRestartChanges 不会自动为 true，这里手动让按钮显示。
     /// </summary>
-    private void ShowPclRestartButton()
+    private void RefreshUpdateButton()
     {
-        if (_restartButtonShown) return;
+        if (_updateAvailableButton is null) return;
 
+        var version = PluginUpdate.AvailableVersion;
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            _updateAvailableButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _updateAvailableButton.Text = $"更新到 {version}";
+        _updateAvailableButton.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// 复用插件管理页的远程安装流程，直接从本插件的 manifest 安装最新版本。
+    /// 不依赖市场索引缓存，也不会因为安装记录来源是本地而找不到更新。
+    /// </summary>
+    private static async void UpdateFromRemoteManifest()
+    {
         try
         {
-            if (ModMain.frmMain is null) return;
-            ModMain.frmMain.RefreshRestartButton(true);
-            if (ModMain.frmMain.FindName("BtnExtraUpdateRestart") is MyExtraButton button)
+            // 先展示新版本更新内容，确认后再下载安装。
+            var version = PluginUpdate.AvailableVersion;
+            var notes = await PluginUpdate.FetchRemoteChangelogAsync(version);
+            if (notes.Count > 0)
             {
-                button.Show = true;
-                _restartButtonShown = true;
+                if (ModMain.MyMsgBox(
+                        PluginUpdate.FormatNotes(notes),
+                        $"NiButCrazy 奇妙特性 {version} 更新内容",
+                        "继续安装",
+                        "取消") != 1)
+                    return;
+            }
+
+            // 复用顶部的下载按钮显示下载/安装活动，结束后恢复。
+            var downloadButton = ModMain.frmMain?.FindName("BtnExtraDownload") as MyExtraButton;
+            downloadButton?.Show = true;
+            downloadButton?.Ribble();
+
+            try
+            {
+                using var prepared = await PluginRemoteInstallService.PrepareAsync(PluginUpdate.ManifestUrl);
+                var manifest = prepared.Manifest;
+
+                // 保持原有安装来源，像本地安装一样更新，不把插件源改成远程 manifest。
+                var record = PluginInstallService.GetRecord(PluginConstants.Id);
+                var sourceType = record?.SourceType ?? PluginInstallSourceType.Local;
+                var installedFrom = record?.InstalledFrom ?? string.Empty;
+
+                await PluginInstallService.InstallFromDirectoryAsync(
+                    prepared.PluginRoot,
+                    manifest,
+                    sourceType,
+                    installedFrom,
+                    installedSha256: prepared.VerifiedSha256);
+
+                ModMain.frmMain?.RefreshRestartButton(true);
+                ModMain.MyMsgBox(
+                    Lang.Text("Plugins.Installed.Message.InstallSuccess", manifest.Name),
+                    Lang.Text("Plugins.Installed.Dialog.Title.InstallComplete"));
+            }
+            finally
+            {
+                downloadButton?.ShowRefresh();
             }
         }
         catch (Exception ex)
         {
-            PluginBootstrap.WriteLog("显示重启按钮失败：" + ex);
+            PluginBootstrap.WriteLog("远程更新失败：" + ex);
+            ModMain.MyMsgBox(
+                Lang.Text("Plugins.Store.Install.Error", ex.Message),
+                Lang.Text("Plugins.Common.Dialog.Title.Error"));
         }
     }
+
+    private void SyncRestartButton()
+    {
+        try
+        {
+            if (ModMain.frmMain is null) return;
+
+            if (HasPendingFeatureChanges())
+            {
+                if (_restartButtonShown) return;
+                ModMain.frmMain.RefreshRestartButton(true);
+                if (ModMain.frmMain.FindName("BtnExtraUpdateRestart") is MyExtraButton button)
+                {
+                    button.Show = true;
+                    _restartButtonShown = true;
+                }
+            }
+            else
+            {
+                _restartButtonShown = false;
+                ModMain.frmMain.RefreshRestartButton(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("同步重启按钮失败：" + ex);
+        }
+    }
+
+    private static bool HasPendingFeatureChanges()
+    {
+        var current = PluginSettings.Current.EnabledFeatures;
+        var baseline = PluginSettings.StartupEnabledFeatures;
+
+        foreach (var feature in FeatureCatalog.Features)
+            if (IsFeatureOn(current, feature.Key) != IsFeatureOn(baseline, feature.Key))
+                return true;
+
+        foreach (var key in new[] { "updateCheck", "updateNotes" })
+            if (IsFeatureOn(current, key) != IsFeatureOn(baseline, key))
+                return true;
+
+        return false;
+    }
+
+    private static bool IsFeatureOn(Dictionary<string, bool> states, string key)
+        => !states.TryGetValue(key, out var enabled) || enabled;
 
     private Grid BuildSkinPreview()
     {
@@ -424,6 +545,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
                 _sortBox.SelectedIndex = index;
 
             RefreshSkinPreview();
+            RefreshUpdateButton();
         }
         finally
         {

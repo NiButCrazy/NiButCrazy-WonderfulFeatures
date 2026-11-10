@@ -32,6 +32,11 @@ internal sealed class PluginSettings
     /// </summary>
     public Dictionary<string, bool> EnabledFeatures { get; set; } = new();
 
+    /// <summary>
+    /// 本次启动时的功能开关快照，用于判断是否需要重启。
+    /// </summary>
+    internal static Dictionary<string, bool> StartupEnabledFeatures { get; set; } = new();
+
     public bool IsFeatureEnabled(string key)
         => !EnabledFeatures.TryGetValue(key, out var enabled) || enabled;
 
@@ -154,6 +159,7 @@ internal static class PluginBootstrap
             _startupTicks = Environment.TickCount64;
             EnsurePinyinDependency();
             var settings = PluginSettings.Current;
+            PluginSettings.StartupEnabledFeatures = new Dictionary<string, bool>(settings.EnabledFeatures);
             MigrateLegacySkinDirectory();
             EnsureSkinReadme();
             WriteLog($"初始化完成：CompSortMethod={settings.CompSortMethod}");
