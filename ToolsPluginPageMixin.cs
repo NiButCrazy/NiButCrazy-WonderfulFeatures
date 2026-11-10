@@ -389,8 +389,11 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     /// 复用插件管理页的远程安装流程，直接从本插件的 manifest 安装最新版本。
     /// 不依赖市场索引缓存，也不会因为安装记录来源是本地而找不到更新。
     /// </summary>
-    private static async void UpdateFromRemoteManifest()
+    private async void UpdateFromRemoteManifest()
     {
+        if (_updateAvailableButton is not null)
+            _updateAvailableButton.IsEnabled = false;
+
         try
         {
             var marketManifest = await PluginRemoteInstallService.FetchManifestAsync(PluginUpdate.ManifestUrl);
@@ -409,7 +412,11 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
                         $"NiButCrazy 奇妙特性 {versionText} 更新内容",
                         "继续安装",
                         "取消") != 1)
+                {
+                    if (_updateAvailableButton is not null)
+                        _updateAvailableButton.IsEnabled = true;
                     return;
+                }
             }
 
             var packageUrl = marketVersion.ResolvedPackageUrl;
@@ -482,6 +489,8 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         }
         catch (Exception ex)
         {
+            if (_updateAvailableButton is not null)
+                _updateAvailableButton.IsEnabled = true;
             PluginBootstrap.WriteLog("远程更新失败：" + ex);
             ModMain.MyMsgBox(
                 Lang.Text("Plugins.Store.Install.Error", ex.Message),
