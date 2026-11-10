@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,36 +13,29 @@ using PCL.Mixin;
 namespace PCL.Plugin.NiButCrazy.Mixins;
 
 /// <summary>
-/// 在「工具」页左侧「奇妙小工具」分类下、于「百宝箱」之后插入「奇妙特性」入口，
-/// 并提供一个插件自己的设置页面。
+/// 在「设置 → 插件」分类下、「插件管理」之后插入「奇妙特性设置」入口，
+/// 并返回插件自己的设置页面。
 /// </summary>
-[Mixin("PCL.PageToolsLeft", Optional = true)]
-internal static class ToolsPluginPageMixin
+[Mixin("PCL.PageSetupLeft", Optional = true)]
+internal static class SetupPluginSettingsMixin
 {
-    private static readonly FormMain.PageSubType PluginPageId = FormMain.PageSubType.ToolsPluginInstalled;
-
-    private static readonly FieldInfo? PageIdField = typeof(PageToolsLeft).GetField(
-        "pageID",
-        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    private static readonly FormMain.PageSubType PluginSettingsPageId = (FormMain.PageSubType)103;
 
     private static ToolsPluginSettingsPage? _page;
 
-    [Inject("PageLinkLeft_Loaded", At = MixinAt.Head)]
-    private static void BeforeLoaded([This] PageToolsLeft page) => EnsureItem(page);
+    [Inject("PageSetupLeft_Loaded", At = MixinAt.Head)]
+    private static void BeforeLoaded([This] PageSetupLeft page) => EnsureItem(page);
 
     [Inject("PageGet", At = MixinAt.Head, Cancellable = true)]
     private static void PageGet(
-        [This] PageToolsLeft page,
+        [This] PageSetupLeft page,
         [Arg(0)] FormMain.PageSubType? id,
         CallbackInfo<object> callback)
     {
         try
         {
-            var target = id;
-            if (target is null && PageIdField?.GetValue(page) is FormMain.PageSubType current)
-                target = current;
-
-            if (target != PluginPageId) return;
+            var target = id ?? page.pageID;
+            if (target != PluginSettingsPageId) return;
             callback.SetReturnValue(_page ??= new ToolsPluginSettingsPage());
         }
         catch (Exception ex)
@@ -52,20 +44,20 @@ internal static class ToolsPluginPageMixin
         }
     }
 
-    private static void EnsureItem(PageToolsLeft page)
+    private static void EnsureItem(PageSetupLeft page)
     {
         try
         {
             if (page.FindName("PanItem") is not StackPanel panItem) return;
             if (panItem.Children.OfType<MyListItem>()
-                .Any(item => item.Tag is int tag && tag == (int)PluginPageId))
+                .Any(item => item.Tag is int tag && tag == (int)PluginSettingsPageId))
                 return;
 
             var item = new MyListItem
             {
                 Title = "奇妙特性",
                 Type = MyListItem.CheckType.RadioBox,
-                Tag = (int)PluginPageId,
+                Tag = (int)PluginSettingsPageId,
                 Height = 36,
                 MinPaddingRight = 35,
                 VerticalAlignment = VerticalAlignment.Top,
@@ -77,9 +69,9 @@ internal static class ToolsPluginPageMixin
             {
                 try
                 {
-                    if (page.FindName("ItemTest") is MyListItem itemTest)
-                        itemTest.SetChecked(false, false, false);
-                    page.PageChange(PluginPageId);
+                    if (page.FindName("ItemPluginInstalled") is MyListItem installed)
+                        installed.SetChecked(false, false, false);
+                    page.PageChange(PluginSettingsPageId);
                 }
                 catch (Exception ex)
                 {
@@ -87,11 +79,19 @@ internal static class ToolsPluginPageMixin
                 }
             };
 
-            // 点击「百宝箱」时取消本项的选中状态。
-            if (page.FindName("ItemTest") is MyListItem existing)
-                existing.Check += (_, _) => item.SetChecked(false, false, false);
+            if (page.FindName("ItemPluginInstalled") is MyListItem anchor)
+            {
+                anchor.Check += (_, _) => item.SetChecked(false, false, false);
+                anchor.IsVisibleChanged += (_, _) => item.Visibility = anchor.Visibility;
+                item.Visibility = anchor.Visibility;
 
-            panItem.Children.Add(item);
+                var index = panItem.Children.IndexOf(anchor);
+                panItem.Children.Insert(index + 1, item);
+            }
+            else
+            {
+                panItem.Children.Add(item);
+            }
         }
         catch (Exception ex)
         {

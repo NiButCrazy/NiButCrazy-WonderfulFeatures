@@ -62,9 +62,9 @@
 > [!NOTE]
 > 该功能处于测试中，可能更新频繁...
 
-### 工具页设置
+### 插件设置页
 
-- **奇妙特性入口**：在「工具 → 奇妙小工具」分类下、百宝箱之后新增「奇妙特性」入口，点击打开独立设置页。
+- **入口位置**：在「设置 → 插件」分类下、「插件管理」之后新增「奇妙特性」，点击打开独立设置页。
 - **排序记忆**：直接设置资源管理的默认排序方式，修改后立即保存。
 - **头像预览**：显示当前离线档案的头像和皮肤文件名；自定义皮肤支持悬停查看地址、点击复制，换肤后再次进入页面自动刷新。
 - **更新选项**：可分别关闭「启动时检查更新」和「更新后显示更新内容弹窗」。
@@ -282,8 +282,8 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新；异步统计结束后校正本地重复项计数与按钮可见性 |
 | `PageInstanceCompResource.CanPassFilter` | Inject HEAD | 「重复」筛选补充基于本地 `modId` 的检测 |
 | `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
-| `PageToolsLeft.PageLinkLeft_Loaded` | Inject HEAD | 在「奇妙小工具」分类下插入「奇妙特性」导航项 |
-| `PageToolsLeft.PageGet` | Inject HEAD | 返回插件自己的「奇妙特性」设置页 |
+| `PageSetupLeft.PageSetupLeft_Loaded` | Inject HEAD | 在「插件管理」下方插入「奇妙特性」导航项 |
+| `PageSetupLeft.PageGet` | Inject HEAD | 返回插件自己的「奇妙特性」页面 |
 
 ### 兼容性
 
