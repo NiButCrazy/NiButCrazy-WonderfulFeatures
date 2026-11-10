@@ -97,7 +97,8 @@ internal static class PluginUpdate
                 return;
             }
 
-            var text = string.Join("\n", notes.Select(note => "· " + note));
+            var text = string.Join("\n",
+                notes.Select(note => note.StartsWith("【", StringComparison.Ordinal) ? note : "· " + note));
             ModMain.MyMsgBox(text, $"NiButCrazy 奇妙特性 {current} 更新内容");
         }
         catch (Exception ex)
@@ -175,17 +176,25 @@ internal static class PluginUpdate
             if (!File.Exists(path)) return result;
 
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
-            if (!doc.RootElement.TryGetProperty(version, out var notes) ||
-                notes.ValueKind != JsonValueKind.Array)
+            if (!doc.RootElement.TryGetProperty(version, out var notes))
                 return result;
 
-            foreach (var note in notes.EnumerateArray())
-                if (note.ValueKind == JsonValueKind.String)
+            if (notes.ValueKind == JsonValueKind.Array)
+            {
+                AddNotes(notes, result);
+            }
+            else if (notes.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var section in notes.EnumerateObject())
                 {
-                    var text = note.GetString();
-                    if (!string.IsNullOrWhiteSpace(text))
-                        result.Add(text);
+                    if (section.Value.ValueKind != JsonValueKind.Array) continue;
+                    var items = new List<string>();
+                    AddNotes(section.Value, items);
+                    if (items.Count == 0) continue;
+                    result.Add($"【{section.Name}】");
+                    result.AddRange(items);
                 }
+            }
         }
         catch (Exception ex)
         {
@@ -193,6 +202,17 @@ internal static class PluginUpdate
         }
 
         return result;
+    }
+
+    private static void AddNotes(JsonElement array, List<string> result)
+    {
+        foreach (var note in array.EnumerateArray())
+            if (note.ValueKind == JsonValueKind.String)
+            {
+                var text = note.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                    result.Add(text);
+            }
     }
 
     private static string GetCurrentVersion()
