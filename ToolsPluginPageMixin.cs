@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,6 +13,8 @@ using PCL.Core.App;
 using PCL.Core.App.Localization;
 using PCL.Core.App.Plugins;
 using PCL.Mixin;
+using PCL.Network;
+using PCL.Network.Loaders;
 
 namespace PCL.Plugin.NiButCrazy.Mixins;
 
@@ -390,28 +393,70 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     {
         try
         {
+            var marketManifest = await PluginRemoteInstallService.FetchManifestAsync(PluginUpdate.ManifestUrl);
+            if (marketManifest is null)
+                throw new InvalidDataException("无法读取插件 manifest");
+
+            var marketVersion = PluginRemoteInstallService.SelectCompatibleManifestVersion(marketManifest);
+            var versionText = marketVersion.Version ?? PluginUpdate.AvailableVersion ?? string.Empty;
+
             // 先展示新版本更新内容，确认后再下载安装。
-            var version = PluginUpdate.AvailableVersion;
-            var notes = await PluginUpdate.FetchRemoteChangelogAsync(version);
+            var notes = await PluginUpdate.FetchRemoteChangelogAsync(versionText);
             if (notes.Count > 0)
             {
                 if (ModMain.MyMsgBox(
                         PluginUpdate.FormatNotes(notes),
-                        $"NiButCrazy 奇妙特性 {version} 更新内容",
+                        $"NiButCrazy 奇妙特性 {versionText} 更新内容",
                         "继续安装",
                         "取消") != 1)
                     return;
             }
 
-            // 复用顶部的下载按钮显示下载/安装活动，结束后恢复。
+            var packageUrl = marketVersion.ResolvedPackageUrl;
+            if (string.IsNullOrWhiteSpace(packageUrl))
+                throw new InvalidDataException("manifest 中没有可用的下载地址");
+
+            var tempDirectory = Path.Combine(ModBase.pathTemp, "PluginUpdate");
+            Directory.CreateDirectory(tempDirectory);
+            var packagePath = Path.Combine(tempDirectory, PluginConstants.Id + ".pclx");
+            if (File.Exists(packagePath))
+                File.Delete(packagePath);
+
+            // 用 PCL 的下载加载器，任务会出现在任务管理器，顶部按钮也会显示进度。
             var downloadButton = ModMain.frmMain?.FindName("BtnExtraDownload") as MyExtraButton;
             downloadButton?.Show = true;
             downloadButton?.Ribble();
 
             try
             {
-                using var prepared = await PluginRemoteInstallService.PrepareAsync(PluginUpdate.ManifestUrl);
-                var manifest = prepared.Manifest;
+                var downloadFile = new DownloadFile(
+                    new[] { packageUrl },
+                    packagePath,
+                    null,
+                    true,
+                    string.Empty);
+                var loaderDownload = new LoaderDownload(
+                    $"NiButCrazy 奇妙特性 {versionText}",
+                    new List<DownloadFile> { downloadFile });
+                var loaderCombo = new ModLoader.LoaderCombo<int>(
+                    $"NiButCrazy 奇妙特性 {versionText}",
+                    new[] { loaderDownload });
+                loaderCombo.Start();
+                ModLoader.LoaderTaskbarAdd(loaderCombo);
+
+                await Task.Run(() => loaderCombo.WaitForExit());
+
+                if (loaderCombo.State != ModBase.LoadState.Finished)
+                    throw new InvalidDataException(
+                        "插件下载失败" +
+                        (loaderCombo.Error is null ? string.Empty : "：" + loaderCombo.Error.Message));
+
+                using var prepared = await PluginRemoteInstallService.PrepareDownloadedPackageAsync(
+                    packagePath,
+                    packageUrl,
+                    marketVersion.ResolvedSha256,
+                    expectedPluginId: PluginConstants.Id,
+                    expectedVersion: marketVersion.Version);
 
                 // 保持原有安装来源，像本地安装一样更新，不把插件源改成远程 manifest。
                 var record = PluginInstallService.GetRecord(PluginConstants.Id);
@@ -420,14 +465,14 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
 
                 await PluginInstallService.InstallFromDirectoryAsync(
                     prepared.PluginRoot,
-                    manifest,
+                    prepared.Manifest,
                     sourceType,
                     installedFrom,
                     installedSha256: prepared.VerifiedSha256);
 
                 ModMain.frmMain?.RefreshRestartButton(true);
                 ModMain.MyMsgBox(
-                    Lang.Text("Plugins.Installed.Message.InstallSuccess", manifest.Name),
+                    Lang.Text("Plugins.Installed.Message.InstallSuccess", prepared.Manifest.Name),
                     Lang.Text("Plugins.Installed.Dialog.Title.InstallComplete"));
             }
             finally
