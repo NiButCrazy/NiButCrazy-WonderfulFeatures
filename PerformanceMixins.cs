@@ -33,6 +33,45 @@ internal static class SearchCancellationFixMixin
     private static readonly FieldInfo? SearchBoxField = typeof(PageInstanceCompResource).GetField(
         "SearchBox", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
+    /// <summary>
+    /// 搜索框刚输入时 IsSearching 立即为 true，但 searchResult 要等防抖和搜索完成后才有值。
+    /// 原版 RefreshBars 会直接对 searchResult 调用 ToArray，导致 ArgumentNullException。
+    /// </summary>
+    internal static void EnsureSearchResultInitialized(PageInstanceCompResource instance)
+    {
+        try
+        {
+            if (!instance.IsSearching) return;
+            var field = SearchResultField;
+            if (field is not null && field.GetValue(instance) is null)
+                field.SetValue(instance, new List<ModLocalComp.LocalCompFile>());
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("初始化搜索结果失败：" + ex);
+        }
+    }
+
+    /// <summary>
+    /// 加载期间保留了搜索词、但搜索结果还没生成时，先用完整列表占位，
+    /// 避免列表在搜索完成前短暂空白；真正的搜索结果随后会覆盖它。
+    /// </summary>
+    internal static void SeedSearchResultIfNull(
+        PageInstanceCompResource instance,
+        List<ModLocalComp.LocalCompFile> entries)
+    {
+        try
+        {
+            var field = SearchResultField;
+            if (field is not null && field.GetValue(instance) is null)
+                field.SetValue(instance, entries);
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("填充搜索结果失败：" + ex);
+        }
+    }
+
     [Overwrite("SearchRun")]
     private static void SearchRun(
         [This] PageInstanceCompResource instance,
@@ -276,8 +315,24 @@ internal static class ModListLoadMixin
                     instance.modItems[pair.Key] = pair.Value;
 
                 instance.Filter = PageInstanceCompResource.FilterType.All;
-                if (SearchBoxField?.GetValue(instance) is MySearchBox searchBox)
-                    searchBox.Text = string.Empty;
+                var searchBox = SearchBoxField?.GetValue(instance) as MySearchBox;
+                var preservedSearch = searchBox?.Text;
+                if (searchBox is not null)
+                {
+                    if (string.IsNullOrWhiteSpace(preservedSearch))
+                    {
+                        searchBox.Text = string.Empty;
+                    }
+                    else
+                    {
+                        // 加载期间输入了搜索词：保留输入框内容，先用完整列表占位，
+                        // 等列表提交完成后再重新搜索一次。
+                        SearchCancellationFixMixin.SeedSearchResultIfNull(
+                            instance,
+                            created.Values.Select(item => item.Entry).ToList());
+                    }
+                }
+
                 instance.RefreshUI();
 
                 // 直接使用保存的排序方式。原版固定切到资源名，会让排序记忆再恢复一次，
@@ -292,6 +347,9 @@ internal static class ModListLoadMixin
 
                 LocalListCacheMixin.MarkLoaded(instance);
                 SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
+
+                if (searchBox is not null && !string.IsNullOrWhiteSpace(preservedSearch))
+                    instance.SearchRun(searchBox, EventArgs.Empty);
             }
 
             void ProcessBatch()
@@ -455,10 +513,20 @@ internal static class RefreshBarsMixin
         {
             try
             {
+                // 列表加载中途输入搜索时，searchResult 在防抖完成前仍为 null，
+                // 原版 RefreshBars 会因此在异步 lambda 里抛 ArgumentNullException。
+                SearchCancellationFixMixin.EnsureSearchResultInitialized(page);
+
                 if (method is Func<Task> factory)
                     await factory();
                 else
                     method.DynamicInvoke();
+            }
+            catch (Exception ex)
+            {
+                // 原版这个 async lambda 的异常是未观测的，会弹"未观测到的异步任务异常"。
+                // 这里统一接住并记录，避免打扰用户。
+                PluginBootstrap.WriteLog("RefreshBars 异步统计异常：" + ex);
             }
             finally
             {
