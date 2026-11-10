@@ -31,6 +31,10 @@ New-Item -ItemType Directory -Path (Join-Path $dist 'lib') -Force | Out-Null
 
 Copy-Item -LiteralPath (Join-Path $root 'plugin.json') -Destination $dist
 Copy-Item -LiteralPath (Join-Path $root 'mixins.json') -Destination $dist
+$changelog = Join-Path $root 'changelog.json'
+if (Test-Path -LiteralPath $changelog) {
+    Copy-Item -LiteralPath $changelog -Destination $dist
+}
 Copy-Item -LiteralPath $assembly -Destination (Join-Path $dist 'lib')
 
 $deps = Join-Path $root "bin\$Configuration\PCL.Plugin.NiButCrazy.deps.json"

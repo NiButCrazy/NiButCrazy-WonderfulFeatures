@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
+using PCL.Core.App.Localization;
 using PCL.Mixin;
 
 namespace PCL.Plugin.NiButCrazy.Mixins;
@@ -34,6 +36,47 @@ internal static class AvatarMixin
 
     private static readonly FieldInfo? TextTypeField = typeof(PageLoginProfileSkin).GetField(
         "TextType", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+    /// <summary>
+    /// 离线档案刷新头像时只重启离线皮肤加载器，不删除任何皮肤缓存，
+    /// 避免档案选择列表里其他档案的头像被清空。
+    /// </summary>
+    [Inject("RefreshCache", At = MixinAt.Head, Cancellable = true)]
+    private static void RefreshCache(CallbackInfo callback)
+    {
+        var profile = ModProfile.selectedProfile;
+        if (profile is null || profile.Type != ModLaunch.McLoginType.Legacy) return;
+        callback.Cancel();
+
+        try
+        {
+            var hasLoaderRunning = PageLaunchLeft.skinLoaders.Any(
+                loader => loader.State == ModBase.LoadState.Loading);
+            if (hasLoaderRunning)
+            {
+                HintService.Hint(Lang.Text("Launch.Skin.Refresh.Busy"));
+                return;
+            }
+
+            ModBase.RunInThread(() =>
+            {
+                try
+                {
+                    HintService.Hint(Lang.Text("Launch.Skin.Refreshing"));
+                    PageLaunchLeft.skinLegacy.WaitForExit(isForceRestart: true);
+                    HintService.Hint(Lang.Text("Launch.Skin.RefreshSuccess"), HintType.Success);
+                }
+                catch (Exception ex)
+                {
+                    ModBase.Log(ex, Lang.Text("Launch.Skin.Refresh.Error"), ModBase.LogLevel.Msgbox);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("刷新离线头像失败：" + ex);
+        }
+    }
 
     [Overwrite("Load")]
     private static void Load([This] MySkin instance)
@@ -217,11 +260,41 @@ internal static class ProfileTextFadeMixin
     {
         Hide(TextNameField, instance);
         Hide(TextTypeField, instance);
+        UpdateSkinMenuText(instance);
     }
 
     private static void Hide(FieldInfo? field, object instance)
     {
         if (field?.GetValue(instance) is UIElement element)
             element.Opacity = 0d;
+    }
+
+    /// <summary>
+    /// 离线档案的「修改皮肤」菜单改为「修改头像」，避免误解为修改游戏内皮肤。
+    /// </summary>
+    private static void UpdateSkinMenuText(PageLoginProfileSkin page)
+    {
+        try
+        {
+            if (page.FindName("BtnSkin") is not MyIconButton button) return;
+            if (button.ContextMenu is null || button.ContextMenu.Items.Count == 0) return;
+            if (button.ContextMenu.Items[0] is not MyMenuItem item) return;
+
+            var profile = ModProfile.selectedProfile;
+            var isLegacy = profile is not null && profile.Type == ModLaunch.McLoginType.Legacy;
+            item.Header = isLegacy
+                ? "修改头像"
+                : Lang.Text("Launch.Account.ProfileSkin.ChangeSkin");
+
+            // 离线档案没有可保存/修改的正版皮肤与披风，隐藏这两项。
+            if (button.ContextMenu.Items.Count > 1 && button.ContextMenu.Items[1] is MyMenuItem saveItem)
+                saveItem.Visibility = isLegacy ? Visibility.Collapsed : Visibility.Visible;
+            if (button.ContextMenu.Items.Count > 3 && button.ContextMenu.Items[3] is MyMenuItem capeItem)
+                capeItem.Visibility = isLegacy ? Visibility.Collapsed : Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("更新档案菜单文字失败：" + ex);
+        }
     }
 }

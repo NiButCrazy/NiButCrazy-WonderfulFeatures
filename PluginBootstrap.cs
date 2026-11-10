@@ -21,8 +21,6 @@ internal static class PluginConstants
 /// </summary>
 internal sealed class PluginSettings
 {
-    public bool VariedDefaultSkins { get; set; } = true;
-
     /// <summary>
     /// 资源管理页记住的排序方式，1 = 资源名（PCL 默认）。
     /// </summary>
@@ -131,7 +129,8 @@ internal static class PluginBootstrap
             var settings = PluginSettings.Current;
             MigrateLegacySkinDirectory();
             EnsureSkinReadme();
-            WriteLog($"初始化完成：VariedDefaultSkins={settings.VariedDefaultSkins}");
+            WriteLog($"初始化完成：CompSortMethod={settings.CompSortMethod}");
+            PluginUpdate.Initialize();
         }
         catch (Exception ex)
         {

@@ -7,14 +7,11 @@ namespace PCL.Plugin.NiButCrazy.Mixins;
 
 /// <summary>
 /// 替换离线皮肤加载逻辑：优先使用插件 Skin 目录里的本地皮肤，
-/// 否则从 9 个官方默认皮肤中按 UUID 稳定选择，而不是只有 Steve/Alex。
+/// 否则沿用 PCL 原版的 Steve/Alex 选择。
 /// </summary>
 [Mixin("PCL.PageLaunchLeft")]
 internal static class OfflineSkinMixin
 {
-    private static readonly string[] DefaultSkins =
-        ["Steve", "Alex", "Ari", "Efe", "Kai", "Makena", "Noor", "Sunny", "Zuri"];
-
     private static readonly FieldInfo? ProfileSkinField = typeof(PageLoginProfileSkin).GetField(
         "Skin",
         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -53,15 +50,12 @@ internal static class OfflineSkinMixin
         return form is null ? null : ProfileSkinField?.GetValue(form) as MySkin;
     }
 
-    private static string ResolveSkinAddress(string username, string uuid)
+    internal static string ResolveSkinAddress(string username, string uuid)
     {
         var customSkin = FindCustomSkin(username, uuid);
         if (customSkin is not null) return customSkin;
 
-        var skinName = PluginSettings.Current.VariedDefaultSkins
-            ? PickDefaultSkin(uuid)
-            : ModSkin.McSkinSex(uuid);
-        return ModBase.pathImage + "Skins/" + skinName + ".png";
+        return ModBase.pathImage + "Skins/" + ModSkin.McSkinSex(uuid) + ".png";
     }
 
     private static string? FindCustomSkin(string username, string uuid)
@@ -84,20 +78,5 @@ internal static class OfflineSkinMixin
         }
 
         return null;
-    }
-
-    private static string PickDefaultSkin(string uuid)
-    {
-        if (string.IsNullOrEmpty(uuid)) return "Steve";
-
-        // FNV-1a，保证同一个 UUID 每次启动都得到同一个皮肤。
-        var hash = 2166136261u;
-        foreach (var character in uuid.ToLowerInvariant())
-        {
-            hash ^= character;
-            hash *= 16777619u;
-        }
-
-        return DefaultSkins[hash % (uint)DefaultSkins.Length];
     }
 }

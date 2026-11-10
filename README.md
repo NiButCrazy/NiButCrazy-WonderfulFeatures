@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.1-blue.svg" alt="Version"></a>
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-2.1.2--dev-blue.svg" alt="Version"></a>
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>2.1.1</b></p>
+<p align="center">当前版本：<b>2.1.2-dev</b></p>
 
 ## 效果预览
 
@@ -58,15 +58,28 @@
 
 - **下载搜索词继承**：在本地 Mod/资源管理页输入搜索词后点击「下载新资源」，下载页会自动填入并搜索。
 - **中文搜索增强**：读取内置的 Mod 翻译库，把「应用能源」这类中文查询转换为公共英文关键词（如 `applied energistics`），避免只锁定到 AE1 而搜不到 AE2。
-- **拼音搜索**：支持全拼、首字母和混合写法（如 `yyny`、`yingyongny`、`jixiedl`），只匹配连续子串，避免 `yyy` 这类跳字误匹配；内置 TinyPinyin。
+- **拼音模糊搜索**：支持全拼、首字母和混合写法（如 `yyny`、`yingyongny`、`jixiedl`），只匹配连续子串，避免 `yyy` 这类跳字误匹配；内置 TinyPinyin。
+    > [!NOTE]
+    >
+    > 该功能处于测试中，可能更新频繁...
+
+### 工具页设置
+
+- **奇妙特性入口**：在「工具 → 奇妙小工具」分类下、百宝箱之后新增「奇妙特性」入口，点击打开独立设置页。
+- **排序偏好**：直接设置资源管理的默认排序方式，修改后立即保存。
+- **头像预览**：显示当前离线档案的头像和皮肤文件位置；换肤后再次进入页面会自动刷新。
+- **插件信息**：显示当前版本、PCL Core 版本和 Mixin 数量。
+- **更新提示**：版本更新后首次启动弹窗展示更新内容；启动时检查插件市场，有新版本时弹 Toast。
+- **快捷按钮**：牢大生存指南（打开 GitHub 自述文件）、检查更新、打开插件数据目录。
 
 ### 离线皮肤与头像
 
-- **离线皮肤**：不再只有 Steve / Alex。支持本地自定义皮肤，默认头像从 9 个官方皮肤中按 UUID 稳定选择。
-- **离线换肤**：离线档案的「皮肤与披风 → 修改皮肤」可以直接选择本地 PNG，不再提示「当前档案不支持修改皮肤！」。
+- **离线皮肤**：支持本地自定义皮肤；没有自定义皮肤时沿用 PCL 原版的 Steve / Alex 选择。
+- **离线换头像**：离线档案的「皮肤与披风 → 修改头像」可以直接选择本地 PNG，不再提示「当前档案不支持修改皮肤！」；离线档案会隐藏「保存皮肤」与「修改披风」。
 - **只读头像逻辑**：重写 `MySkin.Load`，只读取皮肤文件并截取头部区域，绝不写回来源皮肤文件。
 - **头像过渡**：头像淡入（360ms），帽子层延迟 60ms；昵称和账号类型同步淡入。
 - **启动优化**：启动阶段复用人像缓存并延迟皮肤处理，避免和窗口入场动画抢 UI 线程。
+- **刷新隔离**：离线档案刷新头像时只重启离线皮肤加载器，不清空正版 / Authlib 缓存，档案选择列表的头像不会被清空。
 
 ## 本地搜索规则
 
@@ -144,6 +157,7 @@
 PCL/Plugins/nibutcrazy.wonderful-features/
 ├─ plugin.json
 ├─ mixins.json
+├─ changelog.json
 ├─ assets/icon.png
 └─ lib/PCL.Plugin.NiButCrazy.dll
 ```
@@ -157,7 +171,7 @@ PCL/Plugins/nibutcrazy.wonderful-features/
 
 ### 在启动器中换肤
 
-选中离线档案 → **皮肤与披风 → 修改皮肤** → 选择本地 PNG。
+选中离线档案 → **皮肤与披风 → 修改头像** → 选择本地 PNG。
 插件会复制到下面的 `Skin` 目录并立即刷新头像。
 
 ### 手动放置皮肤文件
@@ -168,6 +182,7 @@ PCL/Plugins/nibutcrazy.wonderful-features/
 PCL/Plugins/data/nibutcrazy.wonderful-features/
 ├─ config.json
 ├─ plugin.log
+├─ last-version.txt     ← 上次运行的插件版本
 └─ Skin/                ← 必须是单数
    ├─ 说明.txt
    └─ <玩家 ID>.png
@@ -179,7 +194,7 @@ PCL/Plugins/data/nibutcrazy.wonderful-features/
 2. `<离线 UUID>.png`
 3. `default.png`
 
-皮肤要求为 Minecraft 格式的 PNG（64×64 或 64×32）。都没有匹配时，从 Steve、Alex、Ari、Efe、Kai、Makena、Noor、Sunny、Zuri 中按 UUID 稳定选择。
+皮肤要求为 Minecraft 格式的 PNG（64×64 或 64×32）。都没有匹配时，沿用 PCL 原版的 Steve / Alex 选择。
 
 > 1.1.1 之前版本使用 `Skins/`（复数），会把头像缓存写回皮肤文件，表现为「头像变成一坨色块」。
 > 新版启动时会自动把旧的 `Skins/` 重命名为 `Skins.old-<时间戳>`，请重新选择一次皮肤。
@@ -190,12 +205,10 @@ PCL/Plugins/data/nibutcrazy.wonderful-features/
 
 ```json
 {
-  "VariedDefaultSkins": true,
   "CompSortMethod": 1
 }
 ```
 
-- `VariedDefaultSkins`：`true` 使用 9 个默认皮肤；`false` 恢复为 Steve/Alex。
 - `CompSortMethod`：资源管理的默认排序方式。
   - `0` 文件名
   - `1` 资源名（默认）
@@ -247,10 +260,11 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 
 | 目标 | 方式 | 作用 |
 | --- | --- | --- |
-| `PageLaunchLeft.SkinLegacyLoad` | Overwrite | 离线皮肤解析与默认皮肤选择 |
-| `PageLoginProfileSkin.Skin_Click` | Inject HEAD | 离线档案的修改皮肤入口 |
+| `PageLaunchLeft.SkinLegacyLoad` | Overwrite | 自定义皮肤优先，否则沿用原版 Steve / Alex 选择 |
+| `PageLoginProfileSkin.Skin_Click` | Inject HEAD | 离线档案的修改头像入口 |
 | `MySkin.Load` | Overwrite | 只读皮肤、截取头像、哈希缓存、淡入过渡、启动阶段延迟 |
-| `PageLoginProfileSkin.Reload` | Inject HEAD | 刷新前先把昵称/账号类型设为透明，避免闪烁 |
+| `MySkin.RefreshCache` | Inject HEAD | 离线档案刷新只重启离线加载器，不清空皮肤缓存 |
+| `PageLoginProfileSkin.Reload` | Inject HEAD | 刷新前隐藏昵称/账号类型；离线档案改菜单文字并隐藏保存皮肤、修改披风 |
 | `ModComp.CompProjectsGet` | Inject HEAD | 中文搜索关键词改写 |
 | `PageInstanceCompResource.BtnManageDownload_Click` | Inject HEAD | 记录下载搜索词 |
 | `PageComp.PageCompControls_Inited` | Inject RETURN | 下载页填充搜索词 |
@@ -264,6 +278,8 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `PageInstanceCompResource.RefreshBars` | Inject HEAD | 批次加载期间抑制计数刷新；异步统计结束后校正本地重复项计数与按钮可见性 |
 | `PageInstanceCompResource.CanPassFilter` | Inject HEAD | 「重复」筛选补充基于本地 `modId` 的检测 |
 | `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
+| `PageToolsLeft.PageLinkLeft_Loaded` | Inject HEAD | 在「奇妙小工具」分类下插入「奇妙特性」导航项 |
+| `PageToolsLeft.PageGet` | Inject HEAD | 返回插件自己的「奇妙特性」设置页 |
 
 ### 兼容性
 
@@ -273,4 +289,6 @@ PCL Nex 更新后如果这些方法签名变化，插件会加载失败并被启
 
 - `manifest.json` 位于仓库根目录，声明插件元数据、版本、平台包和 SHA-256。
 - Release tag 使用 `v<版本号>`，资产命名 `nibutcrazy.wonderful-features-windows-anycpu.pclx`。
-- 发版流程：修改 `plugin.json` 版本 → 构建 → 更新 `manifest.json` 的版本/URL/哈希 → 提交推送 → 创建对应 Release。
+- 发版流程：修改 `plugin.json` 版本 → 在 `changelog.json` 增加对应版本的更新内容 → 构建 → 更新 `manifest.json` 的版本/URL/哈希 → 提交推送 → 创建对应 Release。
+- 版本更新后首次启动会读取 `changelog.json` 中当前版本的条目并弹窗；首次安装不弹窗。
+- 启动后还会检查市场 `manifest.json`，发现新版本时弹 Toast。
