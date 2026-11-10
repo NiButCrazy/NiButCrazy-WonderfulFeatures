@@ -17,7 +17,7 @@
 
 ## 效果预览
 
-模组列表加载与筛选切换效果对比：
+**模组列表加载与筛选切换：**
 
 <table align="center">
   <tr>
@@ -25,6 +25,12 @@
     <td align="center"><b>优化后</b><br/><img src="assets/after.webp" width="400" alt="优化后"></td>
   </tr>
 </table>
+
+**奇妙特性设置页：**
+
+<p align="center">
+  <img src="assets/setting.png" width="700" alt="奇妙特性设置页">
+</p>
 
 ## 目录
 
