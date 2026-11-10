@@ -17,7 +17,7 @@
 
 ## 效果预览
 
-**模组列表加载与筛选切换：**
+模组列表加载与筛选切换效果对比：
 
 <table align="center">
   <tr>
@@ -25,12 +25,6 @@
     <td align="center"><b>优化后</b><br/><img src="assets/after.webp" width="400" alt="优化后"></td>
   </tr>
 </table>
-
-**奇妙特性设置页：**
-
-<p align="center">
-  <img src="assets/setting.png" width="700" alt="奇妙特性设置页">
-</p>
 
 ## 目录
 
@@ -78,6 +72,10 @@
 - **功能开关**：按功能组开启或关闭插件 Mixin（离线皮肤与头像、列表优化、本地 Mod、搜索增强、下载搜索词、排序记忆），重启生效。
 - **插件信息**：显示当前版本、PCL Core 版本和 Mixin 数量。
 - **快捷按钮**：牢大生存指南（打开 GitHub 自述文件）、检查更新、打开插件数据目录。
+
+<p align="center">
+  <img src="assets/setting.png" width="550" alt="奇妙特性设置页">
+</p>
 
 ### 离线皮肤与头像
 
