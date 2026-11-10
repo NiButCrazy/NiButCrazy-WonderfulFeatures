@@ -69,8 +69,6 @@ internal static class SetupPluginSettingsMixin
             {
                 try
                 {
-                    if (page.FindName("ItemPluginInstalled") is MyListItem installed)
-                        installed.SetChecked(false, false, false);
                     page.PageChange(PluginSettingsPageId);
                 }
                 catch (Exception ex)
@@ -81,7 +79,8 @@ internal static class SetupPluginSettingsMixin
 
             if (page.FindName("ItemPluginInstalled") is MyListItem anchor)
             {
-                anchor.Check += (_, _) => item.SetChecked(false, false, false);
+                // RadioBox 的互斥由 MyListItem 自己处理，不要手动 SetChecked(false)，
+                // 否则会触发额外的互斥并把刚点击的项反选。
                 anchor.IsVisibleChanged += (_, _) => item.Visibility = anchor.Visibility;
                 item.Visibility = anchor.Visibility;
 
@@ -119,6 +118,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
     private TextBlock _skinStatusText = null!;
     private TextBlock _skinPathText = null!;
     private string? _skinAddress;
+    private bool _restartButtonShown;
     private bool _suppress;
 
     public ToolsPluginSettingsPage()
@@ -284,6 +284,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             var settings = PluginSettings.Current;
             settings.EnabledFeatures["updateCheck"] = checkUpdate.Checked == true;
             PluginSettings.Save();
+            ShowPclRestartButton();
         };
         panel.Children.Add(checkUpdate);
 
@@ -301,6 +302,7 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
             var settings = PluginSettings.Current;
             settings.EnabledFeatures["updateNotes"] = checkNotes.Checked == true;
             PluginSettings.Save();
+            ShowPclRestartButton();
         };
         panel.Children.Add(checkNotes);
 
@@ -317,14 +319,6 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
         };
 
         var root = new StackPanel { Margin = new Thickness(25, 40, 25, 20) };
-        var hint = new TextBlock
-        {
-            Text = "重启生效",
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 14)
-        };
-        hint.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrushGray4");
-        root.Children.Add(hint);
 
         foreach (var feature in FeatureCatalog.Features)
         {
@@ -343,12 +337,37 @@ internal sealed class ToolsPluginSettingsPage : MyPageRight
                 var settings = PluginSettings.Current;
                 settings.EnabledFeatures[key] = check.Checked == true;
                 PluginSettings.Save();
+                ShowPclRestartButton();
             };
             root.Children.Add(check);
         }
 
         card.Children.Add(root);
         return card;
+    }
+
+    /// <summary>
+    /// 复用 PCL 顶部的重启按钮。功能开关不会改变插件启用状态，
+    /// 因此 HasPendingRestartChanges 不会自动为 true，这里手动让按钮显示。
+    /// </summary>
+    private void ShowPclRestartButton()
+    {
+        if (_restartButtonShown) return;
+
+        try
+        {
+            if (ModMain.frmMain is null) return;
+            ModMain.frmMain.RefreshRestartButton(true);
+            if (ModMain.frmMain.FindName("BtnExtraUpdateRestart") is MyExtraButton button)
+            {
+                button.Show = true;
+                _restartButtonShown = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("显示重启按钮失败：" + ex);
+        }
     }
 
     private Grid BuildSkinPreview()
