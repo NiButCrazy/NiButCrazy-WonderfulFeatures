@@ -225,6 +225,22 @@ internal static class ModListLoadMixin
 
         try
         {
+            var output = ModLocalComp.compResourceListLoader.output;
+
+            // 详情页等场景会触发共享 loader 完成；如果输出与已有缓存一致且列表已经构建，
+            // 直接复用现有控件，不触碰滚动条和加载状态，避免返回时掉帧。
+            if (output is not null && output.Count > 0 && instance.modItems.Count > 0 &&
+                LocalListCacheMixin.CanReuseOutput(instance, output))
+            {
+                SetVisibility(PanBackField, instance, Visibility.Visible);
+                SetVisibility(PanEmptyField, instance, Visibility.Collapsed);
+                SetVisibility(PanSchematicEmptyField, instance, Visibility.Collapsed);
+                LocalListCacheMixin.MarkLoaded(instance);
+                RevealScrollBarIfPending(instance);
+                SetLoadingState(instance, MyLoading.MyLoadingState.Stop);
+                return;
+            }
+
             HideScrollBarUntilLoaded(instance);
             // loader 在列表控件创建完成之前就会报告 Finished，
             // 手动保持加载动画，避免 UI 还在忙时加载条先消失。
@@ -232,8 +248,7 @@ internal static class ModListLoadMixin
             SetBatchLoading(instance, true);
             SetLoadingInProgress(instance, true);
 
-            var output = ModLocalComp.compResourceListLoader.output;
-            if (output.Count == 0)
+            if (output is null || output.Count == 0)
             {
                 SetBatchLoading(instance, false);
                 SetLoadingInProgress(instance, false);

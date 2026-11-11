@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using PCL.Mixin;
@@ -59,14 +60,35 @@ internal static class LocalListCacheMixin
         [Arg(0)] bool forceReload,
         CallbackInfo callback)
     {
+        var state = States.GetOrCreateValue(instance);
+        var fromDetail = IsFromCompDetail();
+        var loaderState = ModLocalComp.compResourceListLoader.State;
+        var diagnosticFingerprint = ComputeFingerprint(instance);
+        PluginBootstrap.WriteLog(
+            $"[缓存诊断] force={forceReload}, fromDetail={fromDetail}, loader={loaderState}, " +
+            $"valid={state.Valid}, fpMatch={diagnosticFingerprint is not null && diagnosticFingerprint == state.Fingerprint}");
+
         // 手动刷新、下载完成、启禁用等路径必须真正重载。
         if (forceReload) return;
 
         // 加载器仍在运行（例如快速切换页面）时不要复用，避免共享状态错乱。
         if (ModLocalComp.compResourceListLoader.State != ModBase.LoadState.Finished) return;
+
+        // 从资源详情页返回时通常只是浏览，目录不会变化。
+        // 直接复用已有列表，跳过指纹计算和分批状态检查，避免返回瞬间卡顿。
+        if (IsFromCompDetail())
+        {
+            var cached = States.GetOrCreateValue(instance);
+            if (cached.Valid && cached.Entries is not null)
+            {
+                ModLocalComp.compResourceListLoader.output = cached.Entries;
+                callback.Cancel();
+                return;
+            }
+        }
+
         if (ModListLoadMixin.IsBatchLoading(instance) || ModListLoadMixin.IsLoadingInProgress(instance)) return;
 
-        var state = States.GetOrCreateValue(instance);
         if (!state.Valid || state.Fingerprint is null) return;
 
         var fingerprint = ComputeFingerprint(instance);
@@ -93,6 +115,34 @@ internal static class LocalListCacheMixin
             state.Entries = ModLocalComp.compResourceListLoader.output;
     }
 
+    /// <summary>
+    /// loader 完成时如果输出与已有缓存一致、列表也已经构建，就不需要重建 UI。
+    /// 用于详情页等场景触发的共享 loader 完成事件，避免返回列表时重新分批填充。
+    /// </summary>
+    internal static bool CanReuseOutput(
+        PageInstanceCompResource instance,
+        IReadOnlyList<ModLocalComp.LocalCompFile> output)
+    {
+        try
+        {
+            var state = States.GetOrCreateValue(instance);
+            if (!state.Valid || state.Entries is null) return false;
+            if (output.Count != state.Entries.Count) return false;
+
+            var fingerprint = ComputeFingerprint(instance);
+            if (fingerprint is null || fingerprint != state.Fingerprint) return false;
+
+            var paths = new HashSet<string>(
+                output.Select(item => item.RawPath ?? string.Empty),
+                StringComparer.Ordinal);
+            return state.Entries.All(entry => paths.Contains(entry.RawPath ?? string.Empty));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     internal static void Invalidate(PageInstanceCompResource instance)
     {
         var state = States.GetOrCreateValue(instance);
@@ -101,9 +151,21 @@ internal static class LocalListCacheMixin
         state.Entries = null;
     }
 
+    private static bool IsFromCompDetail()
+    {
+        try
+        {
+            return ModMain.frmMain?.pageLast.page == FormMain.PageType.CompDetail;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// 只在根目录使用缓存。进入子文件夹后列表内容不同，直接禁用该页缓存。
-    /// 目录修改时间能覆盖新增、删除、重命名（启禁用）等操作，文件数量作为额外保险。
+    /// 目录修改时间能覆盖新增、删除、重命名（启禁用）等操作；不枚举文件，避免返回页面时卡顿。
     /// </summary>
     private static string? ComputeFingerprint(PageInstanceCompResource instance)
     {
@@ -118,9 +180,7 @@ internal static class LocalListCacheMixin
             if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return null;
 
             var info = new DirectoryInfo(folder);
-            var entryCount = Directory.GetFileSystemEntries(folder).Length;
-            return $"{Convert.ToInt32(compType)}|{Path.TrimEndingDirectorySeparator(folder)}|" +
-                   $"{info.LastWriteTimeUtc.Ticks}|{entryCount}";
+            return $"{Convert.ToInt32(compType)}|{Path.TrimEndingDirectorySeparator(folder)}|{info.LastWriteTimeUtc.Ticks}";
         }
         catch
         {
