@@ -61,12 +61,6 @@ internal static class LocalListCacheMixin
         CallbackInfo callback)
     {
         var state = States.GetOrCreateValue(instance);
-        var fromDetail = IsFromCompDetail();
-        var loaderState = ModLocalComp.compResourceListLoader.State;
-        var diagnosticFingerprint = ComputeFingerprint(instance);
-        PluginBootstrap.WriteLog(
-            $"[缓存诊断] force={forceReload}, fromDetail={fromDetail}, loader={loaderState}, " +
-            $"valid={state.Valid}, fpMatch={diagnosticFingerprint is not null && diagnosticFingerprint == state.Fingerprint}");
 
         // 手动刷新、下载完成、启禁用等路径必须真正重载。
         if (forceReload) return;
