@@ -17,7 +17,8 @@
     "PCL.Plugin.NiButCrazy.Mixins.LocalIconMixin",
     "PCL.Plugin.NiButCrazy.Mixins.DuplicateDetectMixin",
     "PCL.Plugin.NiButCrazy.Mixins.LocalListCacheMixin",
-    "PCL.Plugin.NiButCrazy.Mixins.SetupPluginSettingsMixin"
+    "PCL.Plugin.NiButCrazy.Mixins.SetupPluginSettingsMixin",
+    "PCL.Plugin.NiButCrazy.Mixins.ScreenshotCacheMixin"
   ],
   "priority": 1000,
   "injectors": {

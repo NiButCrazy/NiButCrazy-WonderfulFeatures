@@ -40,6 +40,9 @@ internal static class FeatureCatalog
         ]),
         new("sort", "资源排序记忆", [
             "PCL.Plugin.NiButCrazy.Mixins.SortMemoryMixin"
+        ]),
+        new("screenshot", "截图列表缓存", [
+            "PCL.Plugin.NiButCrazy.Mixins.ScreenshotCacheMixin"
         ])
     ];
 

@@ -48,6 +48,7 @@
 - **筛选切换优化**：全部 / 已启用 / 已禁用 / 可更新这类顺序不变的切换只处理差异项，排序真正改变时才走重排逻辑。
 - **排序记忆**：在 Mod 管理页选择排序方式后自动保存，重新加载、切换实例或首次进入时恢复。
 - **搜索取消异常修复**：不再反复输出 `CancellationTokenSource has been disposed` 日志。
+- **截图列表缓存**：从其他页面返回截图页时，如果截图目录没有变化，直接复用已有卡片和图片，不再重新扫描目录和重建列表。
 
 ### 本地与离线模组
 
@@ -284,6 +285,7 @@ dist/nibutcrazy.wonderful-features.zip    同样内容
 | `ModLocalComp.LocalCompFile.GetLogo` | Overwrite | 在线图标优先，缺少时后台解析 Forge/NeoForge `logoFile` |
 | `PageSetupLeft.PageSetupLeft_Loaded` | Inject HEAD | 在「插件管理」下方插入「奇妙特性」导航项 |
 | `PageSetupLeft.PageGet` | Inject HEAD | 返回插件自己的「奇妙特性」页面 |
+| `PageInstanceScreenshot.PageSetupLaunch_Loaded` | Inject HEAD | 截图目录未变化时复用已有列表与图片 |
 
 ### 兼容性
 
