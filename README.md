@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-3.0.5-blue.svg" alt="Version"></a>
+  <a href="https://github.com/NiButCrazy/NiButCrazy-WonderfulFeatures/releases"><img src="https://img.shields.io/badge/version-3.0.6-blue.svg" alt="Version"></a>
   <a href="https://github.com/PCL-Nex-Developer/PCL2-Nex"><img src="https://img.shields.io/badge/PCL%20Nex-plugin-8A2BE2.svg" alt="PCL Nex Plugin"></a>
 </p>
 
-<p align="center">当前版本：<b>3.0.5</b></p>
+<p align="center">当前版本：<b>3.0.6</b></p>
 
 ## 效果预览
 
