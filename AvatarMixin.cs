@@ -295,10 +295,74 @@ internal static class ProfileTextFadeMixin
             // 离线档案额外提供删除自定义头像。
             var deleteItem = EnsureDeleteMenuItem(button.ContextMenu);
             deleteItem.Visibility = isLegacy ? Visibility.Visible : Visibility.Collapsed;
+
+            // 离线档案额外提供按玩家 ID 获取正版头像。
+            var mojangItem = EnsureMojangMenuItem(button.ContextMenu);
+            mojangItem.Visibility = isLegacy ? Visibility.Visible : Visibility.Collapsed;
         }
         catch (Exception ex)
         {
             PluginBootstrap.WriteLog("更新档案菜单文字失败：" + ex);
+        }
+    }
+
+    private static MyMenuItem EnsureMojangMenuItem(ContextMenu menu)
+    {
+        foreach (var item in menu.Items)
+            if (item is MyMenuItem existing && existing.Tag as string == "NbcMojangAvatar")
+                return existing;
+
+        var mojangItem = new MyMenuItem
+        {
+            Header = "正版头像",
+            Tag = "NbcMojangAvatar"
+        };
+        mojangItem.Click += (_, _) => ApplyMojangAvatar();
+        // 放在「修改头像」下面。
+        if (menu.Items.Count > 0)
+            menu.Items.Insert(1, mojangItem);
+        else
+            menu.Items.Add(mojangItem);
+        return mojangItem;
+    }
+
+    private static void ApplyMojangAvatar()
+    {
+        try
+        {
+            var profile = ModProfile.selectedProfile;
+            if (profile is null || profile.Type != ModLaunch.McLoginType.Legacy)
+                return;
+
+            var id = profile.Username?.Trim() ?? string.Empty;
+            if (id.Length < 3)
+            {
+                HintService.Hint("当前档案的玩家 ID 无效", HintType.Error);
+                return;
+            }
+
+            HintService.Hint("正在获取正版皮肤...");
+            ModBase.RunInNewThread(() =>
+            {
+                try
+                {
+                    var uuid = (string)ModProfile.McLoginMojangUuid(id, true);
+                    var address = ModSkin.McSkinGetAddress(uuid, "Mojang");
+                    address = ModSkin.McSkinDownload(address);
+                    ModBase.RunInUi(() => PluginBootstrap.ApplyOfflineSkin(profile, address));
+                    ModBase.RunInUi(() => HintService.Hint("已应用正版头像", HintType.Success));
+                }
+                catch (Exception ex)
+                {
+                    PluginBootstrap.WriteLog("获取正版头像失败：" + ex);
+                    ModBase.RunInUi(() => HintService.Hint(
+                        "获取正版皮肤失败，请检查玩家 ID 或网络", HintType.Error));
+                }
+            }, "Mojang Avatar");
+        }
+        catch (Exception ex)
+        {
+            PluginBootstrap.WriteLog("获取正版头像失败：" + ex);
         }
     }
 
